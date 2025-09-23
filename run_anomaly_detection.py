@@ -1,14 +1,3 @@
-"""
-To Kyle: this is the main script for the clara: context-aware language-augmented retrieval anomaly detection framework
-with llama-3.2-1b integration and feedback loop.
-
-The process goes as follows (let me know if you have any questions):
-1. loading data from the specified extrasensory csv file
-2. anomaly detection with llama-3.2-1b via ollama
-3. human-understandable explanations
-4. feedback loop for continuous improvement
-"""
-
 import os
 import sys
 import time
