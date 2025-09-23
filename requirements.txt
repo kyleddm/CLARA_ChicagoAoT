@@ -9,6 +9,12 @@ requests>=2.25.0
 faiss-cpu>=1.7.0
 # faiss-gpu>=1.7.0  # Uncomment if you have CUDA support
 
+# Ollama - LLM server (install separately)
+# Download and install from: https://ollama.ai/
+# After installation, start the server and pull a model:
+# ollama serve &
+# ollama pull llama3.2:1b
+
 # Optional dependencies for enhanced functionality
 # (uncomment if needed)
 # scikit-learn>=1.0.0
