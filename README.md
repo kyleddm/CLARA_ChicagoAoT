@@ -2,6 +2,21 @@
 
 CLARA is an anomaly detection framework for multimodal/mobile sensor data that combines a FAISS vector store, a contrastive embedding model, and LLM-driven analysis (via Ollama) for explanations and contextual reasoning.
 
+### Citation
+
+If you use CLARA in your research, please cite:
+
+```bibtex
+@inproceedings{koh2025clara,
+  title={Clara: Context-Aware RAG-LLM Framework for Anomaly Detection in Mobile Device Sensors},
+  author={Koh, Chan Young and DeMedeiros, Kyle and Hendawi, Abdeltawab},
+  booktitle={2025 26th IEEE International Conference on Mobile Data Management (MDM)},
+  pages={1--8},
+  year={2025},
+  organization={IEEE}
+}
+```
+
 ### Features
 - Semantic retrieval over sensor patterns using `FAISS`
 - Optional contrastive embedding training with PyTorch
