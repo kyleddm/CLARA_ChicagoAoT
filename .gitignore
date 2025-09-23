@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Unit test / coverage reports
+.pytest_cache/
+.coverage*
+htmlcov/
+
+# MyPy / Ruff / tooling caches
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.env
+.venv
+venv/
+ENV/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated artifacts (not part of main CLARA loop)
+metadata.pkl
+extrasensory_vector_store.faiss
+*.faiss
+*.pkl
+feedback_log.json
+
+# Local data
+*.csv
+*.tsv
+*.parquet
+
+# Large docs not needed for runtime
+CLARA.pdf
+
+# Tests (not used by main loop)
+tests/
