@@ -26,12 +26,41 @@ CLARA is an anomaly detection framework for multimodal/mobile sensor data that c
 - System packages: `faiss` (CPU or GPU build)
 - Python packages: `numpy`, `pandas`, `faiss-cpu` or `faiss-gpu`, `requests`, `torch`
 
-Install (CPU example):
+#### Windows and WSL prep (for Windows 11 users)
+- enable virtualization in your BIOS
+- install Windows optional features:
+  - HyperV->HyperV platform
+  - Virtual Machine Platform
+  - Windows subsystem for Linux
+- Install WSL:
+  ```pwsh
+  wsl --install
+  wsl --update
+  ```
+- Install your desired Linux distribution:
+  ```pwsh
+  wsl --install Ubuntu-24.04
+  ```
+- Run WSL: 
+  ```pwsh
+    wsl #this starts the linux environment
+  ```
+
+#### Virtual environment install for a debian-based Linux Distribution (native or wsl)
+```bash
+sudo apt install python3-pip python3-penv python3-numpy python3-pandas build-essential nvidia-cuda-toolkit
+python3 -m venv <path-to-virtual-env-folder>/clara
+cd <path-to-clara-venv>
+./pip install faiss-gpu-<CUDAVERSION>  #for instance ./pip install fiass-gpu-cu12 for cuda 12+
+./pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/<CUDAVERSION>  #for instance, cu128 for cuda 12.8
+```
+
+#### Non-virtual Install (CPU example)
 ```bash
 pip install numpy pandas requests torch faiss-cpu
 ```
 
-### Quick Start
+### CLARA Quick Start
 1) Start Ollama and pull a model (example):
 ```bash
 ollama serve &
