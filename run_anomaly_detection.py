@@ -16,7 +16,7 @@ from clara.contextual_deviation_analyzer import ContextualDeviationAnalyzer
 from clara.explanation_driven_detector import ExplanationDrivenDetector
 
 # constants
-DEFAULT_CSV_PATH = "/home/ai-lab2/GAIN-Pytorch-master/data/no_watch_data_imputed_replaced_cleaned.csv"
+DEFAULT_CSV_PATH = "/mnt/e/input/clara/no_watch_data_imputed_replaced_cleaned.csv"#"/home/ai-lab2/GAIN-Pytorch-master/data/no_watch_data_imputed_replaced_cleaned.csv"
 DEFAULT_MODEL = "llama3.2:1b"
 DEFAULT_API_BASE = "http://localhost:11434"
 DEFAULT_VECTOR_STORE = "extrasensory_vector_store.faiss"
