@@ -24,6 +24,7 @@ from sklearn import preprocessing
 from numpy import int64
 #from sklearn.metrics import davies_bouldin_score
 import findspark
+import json
 def calcUnixTime(timestamp:str):
     from datetime import datetime
     import pytz
@@ -57,16 +58,16 @@ spark.conf.set("spark.sql.session.timeZone", "UTC")
 #spark = SparkSession.builder.config("spark.driver.memory", "20g").getOrCreate()
 spark.conf.set('spark.rapids.sql.enabled','true')
 spark.conf.set('spark.rapids.memory.gpu.pooling.enabled','true')
-df=spark.read.csv(AOT_ROOT+'data.csv',sep=',', header=True)
+stripdf=spark.read.csv(AOT_ROOT+'data.csv',sep=',', header=True)
 df_nodes=spark.read.csv(AOT_ROOT+'nodes.csv',sep=',', header=True)
 df_sensors=spark.read.csv(AOT_ROOT+'sensors.csv',sep=',', header=True)
 #add Lat/Lon to the main dataset
-df_new = df.withColumn('index', monotonically_increasing_id()).join(df_nodes, df.node_id == df_nodes.node_id, 'left').orderBy('index').select('timestamp', df.node_id, 'subsystem', 'sensor', 'parameter', 'value_raw', 'value_hrf', 'lat', 'lon')
+stripdf = stripdf.withColumn('index', monotonically_increasing_id()).join(df_nodes, stripdf.node_id == df_nodes.node_id, 'left').orderBy('index').select('timestamp', stripdf.node_id, 'subsystem', 'sensor', 'parameter', 'value_raw', 'value_hrf', 'lat', 'lon')
 max_id_substring='001e061' #this is the portion of the node_id that is identical to every node
 strip_sens=['chemsense', 'metsense', 'loadavg', 'mem', 'time', 'device', 'net_rx', 'net_tx', 'ping', 'media', 'modem', 'disk_used', 'disk_size', 'disk_used_ratio', 'service_active', 'plugins', 'wagman_fc', 'wagman_cu', 'wagman_enabled', 'wagman_vdc', 'wagman_hb', 'wagman_stopping', 'wagman_starting', 'wagman_killing', 'wagman_th', 'wagman_comm', 'wagman_uptime', 'image_detector']
 sensor_name_truncation={'chemsense':'cs','alphasense':'as','metsense':'ms','plantower':'pt','audio':'aud','lightsense':'ls','wagman':'wg','microphone':'mic','image':'img'}
 #truncate all names of subsystems and node ids for space
-stripdf=df_new.filter(~col('sensor').isin(strip_sens))
+stripdf=stripdf.filter(~col('sensor').isin(strip_sens))
 stripdf=stripdf.withColumn("subsystem", when(col("subsystem") == "chemsense", 'cs').otherwise(col("subsystem")))
 stripdf=stripdf.withColumn("subsystem", when(col("subsystem") == "metsense", 'ms').otherwise(col("subsystem")))
 stripdf=stripdf.withColumn("subsystem", when(col("subsystem") == "lightsense", 'ls').otherwise(col("subsystem")))
@@ -79,10 +80,15 @@ stripdf=stripdf.withColumn("subsystem", when(col("subsystem") == "image", 'img')
 stripdf=stripdf.withColumn("node_id",expr("substring(node_id, 8, 12)"))
 #add UNIX timestamp instead of timestamp
 stripdf = stripdf.withColumn('unixTime',unix_timestamp(to_timestamp('timestamp','yyyy/MM/dd HH:mm:ss')))
+stripdf=stripdf.drop('timestamp')
 print(spark.conf.get('spark.driver.maxResultSize'))
-time_start=calcUnixTime('2018/01/01 00:00:00')
-time_end=calcUnixTime('2018/01/31 23:59:59')
-test=stripdf.filter((stripdf.unixTime >= time_start)& (stripdf.unixTime<=time_end))#.contains('2018/01/01'))
-test=test.drop('timestamp')
-testdf=test.toPandas()
-testdf.to_csv(OUT_ROOT+'aot_2018JAN.csv')
+#time_start=calcUnixTime('2018/01/01 00:00:00')
+#time_end=calcUnixTime('2018/01/15 23:59:59')
+with open('dates.json','r') as dateFil:
+    timelist=json.load(dateFil)
+    for dates in timelist:
+        time_start=calcUnixTime(dates['time_start'])
+        time_end=calcUnixTime(dates['time_end'])
+        test=stripdf.filter((stripdf.unixTime >= time_start)& (stripdf.unixTime<=time_end))#.contains('2018/01/01'))
+        testdf=test.toPandas()
+        testdf.to_csv(OUT_ROOT+dates['title']+'.csv')
