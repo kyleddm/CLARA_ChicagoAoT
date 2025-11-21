@@ -2,7 +2,7 @@
 #from pyspark import ml
 from pyspark.sql.functions import *
 #from spark_rapids_ml.clustering import KMeans
-from cuml.cluster import HDBSCAN
+#from cuml.cluster import HDBSCAN
 from pyspark.sql.functions import concat_ws,col,lit, row_number, monotonically_increasing_id
 from pyspark.sql.window import Window
 from pyspark.sql import SparkSession
@@ -47,8 +47,9 @@ def calcUnixTime(timestamp:str):
 findspark.init()
 #export PYSPARK_SUBMIT_ARGS="--master local[2] pyspark-shell"
 #export JAVA_HOME="/usr/bin/java"
-AOT_ROOT='/mnt/e/datasets/Chicago-AoT-dataset/AoT_Chicago.complete.2022-08-31/'
-OUT_ROOT='/mnt/e/outputs/chicago_aot/'
+DATA_ROOT= '/home/kyleddm/lab_ssd/'  #'/mnt/e/'
+AOT_ROOT=DATA_ROOT+'datasets/Chicago-AoT-dataset/AoT_Chicago.complete.2022-08-31/'
+OUT_ROOT=DATA_ROOT+'outputs/chicago_aot/'
 #pull in dataset(s) and start spark session
 #with open('pre-processed/AoT_dataset_0.pkl', 'rb') as fil:
 #    pdf=pd.DataFrame(pkl.load(fil))

@@ -10,10 +10,12 @@ from typing import Dict, List, Any, Optional
 from clara.clara_detector import CLARA
 from clara.feedback_loop_manager import FeedbackLoopManager
 from clara.extrasensory_csv_loader import ExtraSensoryCSVLoader
-from clara.contrastive_embedding_model import generate_sensor_embeddings_with_contrastive_learning
+from aot.aot_csv_loader import AotCSVLoader
+from aot.contrastive_embedding_model import generate_sensor_embeddings_with_contrastive_learning
 from clara.sensor_data_augmenter import SensorDataAugmenter
 from clara.contextual_deviation_analyzer import ContextualDeviationAnalyzer
 from clara.explanation_driven_detector import ExplanationDrivenDetector
+from utilities import pruneTime
 
 # constants
 DEFAULT_CSV_PATH = "/mnt/e/input/clara/no_watch_data_imputed_replaced_cleaned.csv"#"/home/ai-lab2/GAIN-Pytorch-master/data/no_watch_data_imputed_replaced_cleaned.csv"
@@ -66,29 +68,29 @@ def load_training_data(detector, args):
         print("Skipping training data loading as requested.")
         return
     
-    # use csv loader    
-    csv_loader = ExtraSensoryCSVLoader(args.csv_path)
+    # use csv loader   #this needs to be generalized to load any csv data KDM 2025NOV21 
+    csv_loader = AotCSVLoader(args.csv_path)
     
     # get available users    
-    users = csv_loader.get_available_users()
-    if not users:
+    nodes = csv_loader.get_available_nodes()
+    if not nodes:
         print("No users found in the dataset. Using synthetic data.")
-        data = {"synthetic_user": csv_loader.generate_synthetic_data(args.max_samples)}
+        data = {"synthetic_node": csv_loader.generate_synthetic_data(args.max_samples)}
     else:
         data = {}
-        for user_id in users[:3]:  # limit to first 3 users            
-            user_data = csv_loader.load_user_data(user_id, max_samples=args.max_samples)
-            if user_data:
-                data[user_id] = user_data
-                print(f"Loaded {len(user_data)} samples for user {user_id}")
+        for node_id in nodes[:3]:  # limit to first 3 nodes.  why?  KDM 2025NOV21            
+            node_data = csv_loader.load_node_data(node_id, max_samples=args.max_samples)
+            if node_data:
+                data[node_id] = node_data
+                print(f"Loaded {len(node_data)} samples for user {node_id}")
         
         if not data:
             print("No valid data found in the dataset. Using synthetic data.")
-            data = {"synthetic_user": csv_loader.generate_synthetic_data(args.max_samples)}
+            data = {"synthetic_node": csv_loader.generate_synthetic_data(args.max_samples)}
     
     # count total samples    
     total_samples = sum(len(samples) for samples in data.values())
-    print(f"Loaded {total_samples} samples across {len(data)} users")
+    print(f"Loaded {total_samples} samples across {len(data)} nodes")
     
     # train embedding model using contrastive learning if enough data    
     if total_samples >= 10 and args.train_embeddings:
@@ -96,25 +98,37 @@ def load_training_data(detector, args):
         try:
             # prepare data for embedding training            
             all_samples = []
-            for user_samples in data.values():
-                all_samples.extend(user_samples)
+            for node_samples in data.values(): #this gives us the dictionaries for each node containing the other data columns
+                all_samples.extend(node_samples)
             
             # extract features and labels            
             features = []
             labels = []
-            
             for sample in all_samples:
-                # extract numerical features                
-                feature_vector = []
-                for key, value in sorted(sample.items()):
-                    if key not in ['user_id', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
-                        feature_vector.append(float(value))
-                
+                #extract numerical features.  Time (without the year) is used here since it's very relevant
+                feature_vector=[pruneTime(sample['timestamp']),sample['value_hrf']]
                 if feature_vector:
                     features.append(feature_vector)
-                    # use activity as label                    
-                    activity = sample.get('activity', 'unknown')
-                    labels.append(hash(activity) % 100)  # simple hash to convert activity to numeric label            
+                    #we're going to use subsystem, sensor, and parameter labels as relevant data for the feature, but these need to be made into embeddings
+                    subsys_sen=hash((sample['subsystem']+'_'+sample['sensor']) % 100)
+                    #we combine the subsystem (make) and sensor (model) together because what matters is the similarity between srnsors of similar parameters; we don't want CLARA adding the same weight to two temp sensors of different models and two completely different sensors of similar make
+                    #sen=hash(sample['sensor'] % 100)
+                    param=hash(sample['parameter'] % 100)
+                    labels.append([subsys_sen,param])
+                    
+                    
+            #for sample in all_samples:
+            #    # extract numerical features                
+            #    feature_vector = []
+            #    for key, value in sorted(sample.items()):
+            #        if key not in ['node_id', 'timestamp', 'subsystem' ,'sensor', 'parameter'] and isinstance(value, (int, float)):
+            #            feature_vector.append(float(value))
+            #    
+            #    if feature_vector:
+            #        features.append(feature_vector)
+            #        # use activity as label                    
+            #        activity = sample.get('activity', 'unknown')
+            #        labels.append(hash(activity) % 100)  # simple hash to convert activity to numeric label            
             # pad features to same length if needed            
             max_length = max(len(f) for f in features)
             padded_features = []
@@ -125,7 +139,9 @@ def load_training_data(detector, args):
                     padded_features.append(f)
             
             features_array = np.array(padded_features, dtype=np.float32)
-            labels_array = np.array(labels, dtype=np.int64)
+            #Note that the labels at this point are in the wrong direction;  each sample produces the list of labels and that is appended to the labels array.  we need to transpose it!
+            transposed = [list(row) for row in zip(*labels)]
+            labels_array = np.array(transposed, dtype=np.int64)
             
             # train embedding model            
             model, embeddings = generate_sensor_embeddings_with_contrastive_learning(

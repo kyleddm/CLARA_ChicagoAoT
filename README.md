@@ -98,6 +98,18 @@ print(result)
 - If FAISS or GPU is unavailable, use the CPU build (`faiss-cpu`).
 - The contrastive model is optional; CLARA falls back to a simple embedding.
 
+### AoT-Specific changes
+The Chicago Array of things is a massive sensor dataset collecting environmental information in the city of Chicago spanning multiple years (https://github.com/waggle-sensor/waggle/tree/master/data).
+Unlike the dataset CLARA was originally used on, The Chicago AoT is a collection of multiple different sensors catagorized by generic columns such as "sensor," "subsystem," "parameter," "value_raw," and "value_hrf."
+Because each sensor not only doesn't have its own column (making the data mixed), but contains long names, networking data and both raw information and human readable information, the following changes are made to the dataset:
+- All subsystems, node ids, and parameters were truncated where possible to their most significant descriptors.
+- The networking data was stripped from the dataset
+- Any sensors that provided no meaningful, changing information (i.e. reports of a sensor's id for isntance), were stripped from the dataset
+- Because the raw sensor data does not conform to the instruction sheets' operating parameters or unit, they were stripped (if raw data included simple counts, those values were copied to the value_hrf column if they were missing prior to stripping the raw column)
+- If performing the above caused a particular sensor to not produce a hrf value for a given timestamp, that row was removed.
+- We chose to leave the remaining columns generic, rather than increasing dimensionality (and sparsity) by converting each unique sensor into it's own column.
+All of these changes allow the dataset to be significantly reduced in size (assisting with training, embedding generation, and loading into memory)
+
 ### Citation
 
 If you use CLARA in your research, please cite:

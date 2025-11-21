@@ -46,3 +46,12 @@ CLARA.pdf
 
 # Tests (not used by main loop)
 tests/
+
+# Archive folder for old documents
+archive/
+#input and output folders
+output/
+input/
+
+#torch test notebook
+torchPlayground.ipynb
