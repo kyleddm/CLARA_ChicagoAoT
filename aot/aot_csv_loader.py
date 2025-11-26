@@ -296,7 +296,7 @@ class AotCSVLoader:
 
 if __name__ == "__main__":
     # test loading from csv file    
-    csv_path = "/home/ai-lab2/GAIN-Pytorch-master/data/combined.csv"
+    csv_path = "./input/big2018-03-30_00.36.46.csv"
     loader = AotCSVLoader(csv_path)
     
     # print statistics    
@@ -311,30 +311,40 @@ if __name__ == "__main__":
             print(f"  - {key}: {value}")
     
     # print available users and activities    
-    users = loader.get_available_users()
-    activities = loader.get_available_activities()
+    nodes = loader.get_available_nodes()
+    subsystems = loader.get_available_subsystems()
+    sensors = loader.get_available_sensors()
+    parameters = loader.get_available_parameters()
     
-    print(f"\nFound {len(users)} users")
-    if users:
-        print(f"Sample users: {users[:5]}")
+    print(f"\nFound {len(nodes)} nodes")
+    if nodes:
+        print(f"Sample users: {nodes[:5]}")
+    print(f"Found {len(subsystems)} subsystems")
+    if subsystems:
+        print(f"Sample usbsystems: {subsystems[:10]}")
+    print(f"Found {len(sensors)} sensors")
+    if sensors:
+        print(f"Sample sensors: {sensors[:10]}")
+    print(f"Found {len(parameters)} parameters")
+    if parameters:
+        print(f"Sample parameters: {parameters[:5]}")
     
-    print(f"Found {len(activities)} activities")
-    if activities:
-        print(f"Sample activities: {activities[:10]}")
     
     # load some sample data    
-    if users and activities:
-        user = users[0]
-        activity = activities[0]
-        samples = loader.load_user_data(user, activity, max_samples=5)
+    if nodes and subsystems and sensors and parameters:
+        node = nodes[0]
+        subsystem = subsystems[0]
+        sensor= sensors[0]
+        parameter=parameters[0]
+        samples = loader.load_user_data(node, subsystem, sensor, parameter, max_samples=5)
         
-        print(f"\nSample data for user {user}, activity {activity}:")
+        print(f"\nSample data for node {node}, subsystem {subsystem}, sensor {sensor}, parameter {parameter}:")
         for i, sample in enumerate(samples):
             print(f"Sample {i+1}: {list(sample.keys())[:10]}")
             
             # print a few sensor values            
             sensor_values = {k: v for k, v in sample.items() 
-                            if k not in ['user_id', 'activity', 'timestamp'] and i < 3}
+                            if k not in ['node_id', 'subsystem', 'sensor', 'parameter', 'timestamp'] and i < 3}
             print(f"  Sensor values (sample): {list(sensor_values.items())[:5]}")
     
     # test synthetic data generation    

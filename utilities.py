@@ -35,3 +35,22 @@ def pruneTime(inDate:str, timezone_str='America/Chicago'):
     startTime=myYear+'/01/01 00:00:00'
     yearSecs=calcSecDiff(startTime,inDate, timezone_str=timezone_str, verbose=False)
     return yearSecs
+
+def parse_json_args(args):
+    from argparse import Namespace
+    args_dict=vars(args)#convert the arguments from the parser into a dictionary to compare values
+    args2=None #the new arguments to be returned will live here
+    #if you want to use a config file isntead of putting all the args into the command-line
+    try:
+        configs=json.load(args.config_path)
+        for key in configs.keys:
+            if key in args_dict.keys():
+                args_dict[key]=configs[key]
+        args2 = Namespace(**args_dict) #will overwrite original args with values present in the config file.  this should protect against missing items in the config file since it preserves the default args from the parser.
+            
+    except FileNotFoundError as e:
+        print(f'the file speficied by {args.config_path} cannot be found')
+        print(e.errno)
+    
+    
+    return args2

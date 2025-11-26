@@ -16,6 +16,7 @@ from clara.sensor_data_augmenter import SensorDataAugmenter
 from clara.contextual_deviation_analyzer import ContextualDeviationAnalyzer
 from clara.explanation_driven_detector import ExplanationDrivenDetector
 from utilities import pruneTime
+from utilities import parse_json_args
 
 # constants
 DEFAULT_CSV_PATH = "/mnt/e/input/clara/no_watch_data_imputed_replaced_cleaned.csv"#"/home/ai-lab2/GAIN-Pytorch-master/data/no_watch_data_imputed_replaced_cleaned.csv"
@@ -213,19 +214,22 @@ def run_detection_demo(detector, feedback_loop, args):
     print("\nRunning anomaly detection demonstration...")
     
     # load test data (a small subset)    
-    csv_loader = ExtraSensoryCSVLoader(args.csv_path)
-    users = csv_loader.get_available_users()
+    csv_loader = AotCSVLoader(args.csv_path)
+    nodes = csv_loader.get_available_nodes()
     
-    if not users:
-        print("No users found in the dataset. Using synthetic test data.")
+    #csv_loader = ExtraSensoryCSVLoader(args.csv_path)
+    #users = csv_loader.get_available_users()
+    
+    if not nodes:
+        print("No nodes found in the dataset. Using synthetic test data.")
         test_data = csv_loader.generate_synthetic_data(5)
     else:
         # get data for the first user        
-        user_id = users[0]
-        raw_test_data = csv_loader.load_user_data(user_id, max_samples=5)
+        node_id = nodes[0]
+        raw_test_data = csv_loader.load_node_data(node_id, max_samples=5)
         
         if not raw_test_data:
-            print(f"No data found for user {user_id}. Using synthetic test data.")
+            print(f"No data found for node {node_id}. Using synthetic test data.")
             test_data = csv_loader.generate_synthetic_data(5)
         else:
             test_data = raw_test_data
@@ -235,7 +239,7 @@ def run_detection_demo(detector, feedback_loop, args):
                 anomaly_sample = test_data[-1].copy()
                 # modify several sensor values to make it anomalous                
                 for key in anomaly_sample:
-                    if key not in ['user_id', 'activity', 'timestamp'] and isinstance(anomaly_sample[key], (int, float)):
+                    if key not in ['node_id', 'subsystem', 'sensor','parameter', 'timestamp'] and isinstance(anomaly_sample[key], (int, float)):
                         anomaly_sample[key] = anomaly_sample[key] * 3.0
                 
                 test_data.append(anomaly_sample)
@@ -244,7 +248,7 @@ def run_detection_demo(detector, feedback_loop, args):
     
     for i, sample in enumerate(test_data):
         print(f"\nSample {i+1}/{len(test_data)}:")
-        print(f"User: {sample.get('user_id', 'unknown')}, Activity: {sample.get('activity', 'unknown')}")
+        print(f"Node: {sample.get('node_id', 'unknown')}, Subsystem: {sample.get('subsystem', 'unknown')}, Sensor: {sample.get('sensor', 'unknown')}, Parameter: {sample.get('parameter', 'unknown')}")
         
         # run detection        
         try:
@@ -350,8 +354,10 @@ def analyze_sample_in_detail(detector, sample, args):
         
         # 5. perform contextual deviation analysis        
         context = {
-            "user_id": sample.get("user_id", "unknown"),
-            "activity": sample.get("activity", "unknown")
+            "node_id": sample.get("node_id", "unknown"),
+            "subsystem": sample.get("subsystem", "unknown"),
+            "sensor": sample.get("sensor", "unknown"),
+            "parameter": sample.get("parameter", "unknown")
         }
         deviation_analyzer = ContextualDeviationAnalyzer(detector.llm)
         try:
@@ -430,14 +436,22 @@ def parse_arguments():
     parser.add_argument("--reset-feedback", action="store_true",
                         help="Reset the feedback log before starting")
     
+    parser.add_argument("--use-config", action="store_true", help = "uses pre-defined json file containing all the configs for the detector")
+    parser.add_argument("--config-path", type=str, default='./config.json')
+    
     args = parser.parse_args()
     return args
-
 
 def main():
 
     # parse arguments    
     args = parse_arguments()
+    
+    #if the user chose to use a json file config instead of the command line, overwrite all the arguments before proceeding
+    if args.use_config:
+        args2=parse_json_args(args)
+        if args2 is not None:
+            args=args2
     
     print("=" * 70)
     print("CLARA: CONTEXT-AWARE LANGUAGE-AUGMENTED RETRIEVAL ANOMALY DETECTION")

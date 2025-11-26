@@ -60,7 +60,7 @@ class ContrastiveLoss(nn.Module):
         
         # create mask for positive pairs (same label)    Note that there are multiple labels so the matrices need to be shifted!    
         pos_mask = (labels.unsqueeze(1) == labels.unsqueeze(2)).float()
-        for i in range(pos_pask.size(0)):
+        for i in range(pos_mask.size(0)):
             torch.Tensor.fill_diagonal_(pos_mask[i], 0)# exclude self-pairs 
             #pos_mask.fill_diagonal_(0)  # exclude self-pairs        
         # create mask for negative pairs (different label)        
