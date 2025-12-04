@@ -1,6 +1,7 @@
 import json
 from typing import Dict, List, Tuple, Any, Optional
-
+##2025DEC04##
+#The index might be present in this code.  Verify, then remove before ingestion.  Also check syntax.  Output still says "user" and "performed".  This needs to be removed.
 
 # for this, llm client can be anything. in our use-case, we went for ollama
 class ExplanationDrivenDetector:
@@ -13,26 +14,25 @@ class ExplanationDrivenDetector:
     def pattern_to_text(self, pattern: Dict[str, Any]) -> str:
         
         # extract metadata        
-        host_id = pattern.get('hostID', 'unknown')
-        activity = pattern.get('activity', 'unknown')
+        node_id = pattern.get('node_id', 'unknown')
+        subsystem = pattern.get('subsystem', 'unknown')
+        sensor = pattern.get('sensor', 'unknown')
+        parameter = pattern.get('parameter', 'unknown')
         timestamp = pattern.get('timestamp', 'unknown')
         
-        text = f"Host {host_id} performing {activity} at {timestamp}\n\n"
+        text = f"Host {node_id} with {subsystem}, {sensor}, measuring {parameter} at {timestamp}\n\n"
         text += "Sensor readings:\n"
         
         # organize sensors by type        
         sensor_groups = {
-            'accelerometer': [],
-            'gyroscope': [],
-            'other': []
+            'value_hrf': [],
+            'other':[]
         }
         
         for key, value in pattern.items():
-            if key not in ['hostID', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
-                if 'acc' in key.lower():
-                    sensor_groups['accelerometer'].append((key, value))
-                elif 'gyro' in key.lower():
-                    sensor_groups['gyroscope'].append((key, value))
+            if key not in ['node_id', 'subsystem', 'sensor', 'parameter', 'timestamp'] and isinstance(value, (int, float)):
+                if 'value_hrf' in key.lower():
+                    sensor_groups['value_hrf'].append((key, value))
                 else:
                     sensor_groups['other'].append((key, value))
         
@@ -71,11 +71,13 @@ class ExplanationDrivenDetector:
             closest_normal = min(normal_patterns, key=lambda x: x.get('distance', float('inf')))
             text += "CLOSEST NORMAL PATTERN:\n"
             text += f"- Distance: {closest_normal.get('distance', 'unknown'):.4f}\n"
-            text += f"- Activity: {closest_normal.get('activity', 'unknown')}\n"
+            text += f"- sybsystem: {closest_normal.get('subsystem', 'unknown')}\n"
+            text += f"- sensor: {closest_normal.get('sensor', 'unknown')}\n"
+            text += f"- parameter: {closest_normal.get('parameter', 'unknown')}\n"
             
             # add key sensor readings            
             for key, value in closest_normal.items():
-                if key in ['acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z'] and isinstance(value, (int, float)):
+                if key in ['value_hrf'] and isinstance(value, (int, float)):
                     text += f"- {key}: {value:.4f}\n"
             
             description = closest_normal.get('description', '')
@@ -89,12 +91,14 @@ class ExplanationDrivenDetector:
             closest_anomaly = min(anomaly_patterns, key=lambda x: x.get('distance', float('inf')))
             text += "CLOSEST ANOMALY PATTERN:\n"
             text += f"- Distance: {closest_anomaly.get('distance', 'unknown'):.4f}\n"
-            text += f"- Activity: {closest_anomaly.get('activity', 'unknown')}\n"
+            text += f"- sybsystem: {closest_anomaly.get('subsystem', 'unknown')}\n"
+            text += f"- sensor: {closest_anomaly.get('sensor', 'unknown')}\n"
+            text += f"- parameter: {closest_anomaly.get('parameter', 'unknown')}\n"
             text += f"- Anomaly Type: {closest_anomaly.get('anomaly_type', 'unknown')}\n"
             
             # add key sensor readings            
             for key, value in closest_anomaly.items():
-                if key in ['acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z'] and isinstance(value, (int, float)):
+                if key in ['value_hrf'] and isinstance(value, (int, float)):
                     text += f"- {key}: {value:.4f}\n"
             
             explanation = closest_anomaly.get('explanation', '')
@@ -159,7 +163,7 @@ class ExplanationDrivenDetector:
         # check if explanation references specific sensor values        
         sensor_refs = 0
         for key in pattern:
-            if key not in ['user_id', 'activity', 'timestamp', 'uuid'] and isinstance(pattern[key], (int, float)):
+            if key not in ['node_id', 'aubaystem','sensor','parameter', 'timestamp'] and isinstance(pattern[key], (int, float)):
                 if key in explanation.lower():
                     sensor_refs += 1
         
@@ -173,7 +177,7 @@ class ExplanationDrivenDetector:
         import re
         
         pattern_values = [v for k, v in pattern.items() 
-                         if k not in ['user_id', 'activity', 'timestamp', 'uuid'] 
+                         if k not in ['node_id', 'subsystem','sensor','parameter', 'timestamp'] 
                          and isinstance(v, (int, float))]
         
         # extract numbers from explanation        
