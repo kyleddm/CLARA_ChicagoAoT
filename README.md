@@ -19,12 +19,21 @@ CLARA is an anomaly detection framework for multimodal/mobile sensor data that c
   - `explanation_driven_detector.py`: Explanation-first detection with coherence gating
   - `extrasensory_csv_loader.py`: CSV loader/utilities and synthetic data generator
   - `ollama_llm.py`: Minimal Ollama client wrapper
+- `aot/`: Python package containing modified CLARA components fo the Chicago AoT Dataset, as well as data processing and utility functions
+  - `sparkml_Desktop.ipynb`: A jupyter notebook used for data processing through spark
+  - `aot_csv_loader.py`:The python script to load the AoT data
+  - `aot_by_date.py`:The python script to split the 400GB Chicago AoT data into usable chunks
+  - `dates.json`: The list of dates to split the AoT data by.  This is later combined into larger files for ingestion
+  - `download_datasheets.py`: Used to pull the sensor datasheets (can be used to allow an LLM more information on the sensors used)
+  - `prune_aot.ipynb`: The jupyter notebook used to prunt the AoT *without* using spark (longer, but more stable)
+  - Other files that match the names of those in the clara folder perform the same functions, just on AoT data.
 - `run_anomaly_detection.py`: End-to-end demo pipeline
 
 ### Requirements
 - Python 3.9+
 - System packages: `faiss` (CPU or GPU build)
-- Python packages: `numpy`, `pandas`, `faiss-cpu` or `faiss-gpu`, `requests`, `torch`
+- Python packages (mandatory): `numpy`, `pandas`, `faiss-cpu` or `faiss-gpu`, `requests`, `torch`, `json`, `pytz`, `argparse`, `datetime`, `os`, `sys`, `time`, `typing`
+- Python packages (optionsl): `pyspark`, `matplotlib`, `plotly`, `findspark`, `pickle`, `sklearn`, `csv`
 
 #### Windows and WSL prep (for Windows 11 users)
 - enable virtualization in your BIOS
@@ -127,6 +136,9 @@ If you use CLARA in your research, please cite:
   organization={IEEE}
 }
 ```
+### TODO
+- generalize CLARA so any data type can be used
+- general code cleanup and documentation
 
 ### License
 MIT
