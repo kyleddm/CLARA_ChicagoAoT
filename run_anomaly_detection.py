@@ -19,11 +19,12 @@ from utilities import pruneTime
 from utilities import parse_json_args
 
 # constants
-DEFAULT_CSV_PATH = "/mnt/e/input/clara/no_watch_data_imputed_replaced_cleaned.csv"#"/home/ai-lab2/GAIN-Pytorch-master/data/no_watch_data_imputed_replaced_cleaned.csv"
+DEFAULT_CSV_PATH = "/mnt/e/input/chicago_aot/big2018-03-30_00.36.46.csv"#"/mnt/e/input/clara/no_watch_data_imputed_replaced_cleaned.csv"#"/home/ai-lab2/GAIN-Pytorch-master/data/no_watch_data_imputed_replaced_cleaned.csv"
 DEFAULT_MODEL = "llama3.2:1b"
 DEFAULT_API_BASE = "http://localhost:11434"
 DEFAULT_VECTOR_STORE = "extrasensory_vector_store.faiss"
 DEFAULT_FEEDBACK_LOG = "feedback_log.json"
+DEFAULT_CONFIG_PATH="./config.json"
 
 
 def initialize_detector(args):
@@ -437,7 +438,7 @@ def parse_arguments():
                         help="Reset the feedback log before starting")
     
     parser.add_argument("--use-config", action="store_true", help = "uses pre-defined json file containing all the configs for the detector")
-    parser.add_argument("--config-path", type=str, default='./config.json')
+    parser.add_argument("--config-path", type=str, default=DEFAULT_CONFIG_PATH)
     
     args = parser.parse_args()
     return args

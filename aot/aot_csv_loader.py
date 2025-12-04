@@ -21,7 +21,7 @@ class AotCSVLoader:
         else:
             try:
                 # load the file as a pandas dataframe                
-                print(f"Loading ExtraSensory data from {csv_file_path}...")
+                print(f"Loading Sensor data from {csv_file_path}...")
                 self.df = pd.read_csv(csv_file_path)
                 print(f"Successfully loaded data with {len(self.df)} rows and {len(self.df.columns)} columns")
             except Exception as e:

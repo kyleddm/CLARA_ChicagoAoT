@@ -95,8 +95,11 @@ print(result)
 
 ### Notes
 - Defaults assume Ollama at `http://localhost:11434` and model `llama3.2:1b`.
+  - make sure you pass through your llama instance if you're using something like WSL with Ollama residing on Windows!M
 - If FAISS or GPU is unavailable, use the CPU build (`faiss-cpu`).
 - The contrastive model is optional; CLARA falls back to a simple embedding.
+- A config file has been generated so you can use that instead of arguments.  All you need is --use-config when you run run_anomaly_detection.py.
+  - The config file assumes sym links to the csv file(s) (input) and a the folder where you want your fiass file and log to go (output).  These need to be created as they're not present in the repo.
 
 ### AoT-Specific changes
 The Chicago Array of things is a massive sensor dataset collecting environmental information in the city of Chicago spanning multiple years (https://github.com/waggle-sensor/waggle/tree/master/data).

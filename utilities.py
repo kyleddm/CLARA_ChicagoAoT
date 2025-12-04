@@ -1,5 +1,7 @@
 from datetime import datetime
 import pytz
+import json
+from argparse import Namespace
 #example timestamp 2020/06/14 00:05:58
 # Example timestamp string and timezone
 timestamp_str = '2025/11/21 15:30:00'
@@ -37,15 +39,16 @@ def pruneTime(inDate:str, timezone_str='America/Chicago'):
     return yearSecs
 
 def parse_json_args(args):
-    from argparse import Namespace
     args_dict=vars(args)#convert the arguments from the parser into a dictionary to compare values
     args2=None #the new arguments to be returned will live here
     #if you want to use a config file isntead of putting all the args into the command-line
     try:
-        configs=json.load(args.config_path)
-        for key in configs.keys:
-            if key in args_dict.keys():
-                args_dict[key]=configs[key]
+        conf_file=args.config_path
+        with open(conf_file,'r') as fil:
+            configs=json.load(fil)
+            for key in configs.keys():
+                if key in args_dict.keys():
+                    args_dict[key]=configs[key]
         args2 = Namespace(**args_dict) #will overwrite original args with values present in the config file.  this should protect against missing items in the config file since it preserves the default args from the parser.
             
     except FileNotFoundError as e:
