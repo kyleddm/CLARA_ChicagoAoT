@@ -2,6 +2,7 @@ from datetime import datetime
 import pytz
 import json
 from argparse import Namespace
+from typing import Dict, List, Tuple, Any, Optional
 #example timestamp 2020/06/14 00:05:58
 # Example timestamp string and timezone
 timestamp_str = '2025/11/21 15:30:00'
@@ -57,3 +58,29 @@ def parse_json_args(args):
     
     
     return args2
+
+def extract_metadata(pattern: Dict[str, Any]):
+    id_keys=[key for key in pattern if 'id' in key.lower()]
+    value_keys=[key for key in pattern if 'value' in key.lower()]
+    timestamp_keys=[key for key in pattern if ('timestamp' in key.lower() or 'date' in key.lower())]
+    label_keys= [key for key in pattern if key not in id_keys and key not in timestamp_keys and key not in value_keys]
+    keys={'ids':id_keys,'values':value_keys,'timestamps':timestamp_keys,'labels':label_keys}
+    
+    # extract metadata        
+    ids=[]
+    values=[]
+    timestamps=[]
+    labels=[]
+    
+    for key in id_keys:
+        ids.append(pattern.get(key, 'unknown'))
+    for key in value_keys:
+        values.append(pattern.get(key, 'unknown'))
+    for key in timestamp_keys:
+        timestamps.append(pattern.get(key, 'unknown'))
+    for key in label_keys:
+        labels.append(pattern.get(key, 'unknown'))
+
+    metadata={'timestamps':timestamps,'ids':ids,'values':values,'labels':labels}
+    text = f"Host {",".join(map(str,ids))} with {",".join(map(str,labels))}, at {",".join(map(str,timestamps))}\n\n"
+    return metadata, text, keys

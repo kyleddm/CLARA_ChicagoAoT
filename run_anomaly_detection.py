@@ -73,10 +73,10 @@ def load_training_data(detector, args):
     # use csv loader   #this needs to be generalized to load any csv data KDM 2025NOV21 
     csv_loader = AotCSVLoader(args.csv_path)
     
-    # get available users    
+    # get available nodes    
     nodes = csv_loader.get_available_nodes()
     if not nodes:
-        print("No users found in the dataset. Using synthetic data.")
+        print("No nodes found in the dataset. Using synthetic data.")
         data = {"synthetic_node": csv_loader.generate_synthetic_data(args.max_samples)}
     else:
         data = {}
@@ -84,7 +84,7 @@ def load_training_data(detector, args):
             node_data = csv_loader.load_node_data(node_id, max_samples=args.max_samples)
             if node_data:
                 data[node_id] = node_data
-                print(f"Loaded {len(node_data)} samples for user {node_id}")
+                print(f"Loaded {len(node_data)} samples for node {node_id}")
         
         if not data:
             print("No valid data found in the dataset. Using synthetic data.")
@@ -164,8 +164,8 @@ def load_training_data(detector, args):
     patterns_added = 0
     anomalies_added = 0
     
-    for user_id, samples in data.items():
-        print(f"Processing data for user {user_id}...")
+    for node_id, samples in data.items():
+        print(f"Processing data for node {node_id}...")
         
         # reserve some samples for anomalies (approximately 10%)        
         num_anomalies = max(1, int(len(samples) * 0.1))
@@ -179,7 +179,7 @@ def load_training_data(detector, args):
             
             detector.add_normal_pattern(
                 sample,
-                description=f"Normal pattern for user {user_id} while {sample.get('activity', 'unknown activity')}"
+                description=f"Normal pattern for node {node_id} with {sample.get('subsystem', 'unknownwn subsystem')}, {sample.get('sensor', 'unknownwn sensor')}, {sample.get('parameter', 'unknownwn parameter')}"
             )
             patterns_added += 1
         
@@ -189,7 +189,7 @@ def load_training_data(detector, args):
         for i, sample in enumerate(anomaly_samples):
             # modify samples to make them more anomalous            
             for key in sample:
-                if key not in ['user_id', 'activity', 'timestamp'] and isinstance(sample[key], (int, float)):
+                if key not in ['user_id', 'subsystem','sensor','parameter', 'timestamp'] and isinstance(sample[key], (int, float)):
                     # randomly increase or decrease by a factor                    
                     if i % 2 == 0:
                         sample[key] = sample[key] * 2.5
@@ -198,8 +198,8 @@ def load_training_data(detector, args):
             
             detector.add_anomaly_pattern(
                 sample,
-                anomaly_type="behavioral",
-                explanation=f"Simulated anomaly for user {user_id} while {sample.get('activity', 'unknown activity')}"
+                anomaly_type="sensor reading",
+                explanation=f"Simulated anomaly for node {node_id} with with {sample.get('subsystem', 'unknownwn subsystem')}, {sample.get('sensor', 'unknownwn sensor')}, {sample.get('parameter', 'unknownwn parameter')}"
             )
             anomalies_added += 1
     
@@ -249,7 +249,7 @@ def run_detection_demo(detector, feedback_loop, args):
     
     for i, sample in enumerate(test_data):
         print(f"\nSample {i+1}/{len(test_data)}:")
-        print(f"Node: {sample.get('node_id', 'unknown')}, Subsystem: {sample.get('subsystem', 'unknown')}, Sensor: {sample.get('sensor', 'unknown')}, Parameter: {sample.get('parameter', 'unknown')}")
+        print(f"Timestamp: {sample.get('timestamp', 'unknown')}, Node: {sample.get('node_id', 'unknown')}, Subsystem: {sample.get('subsystem', 'unknown')}, Sensor: {sample.get('sensor', 'unknown')}, Parameter: {sample.get('parameter', 'unknown')}, Value:{sample.get('value_hrf', 'unknown')}")
         
         # run detection        
         try:
@@ -399,7 +399,7 @@ def analyze_sample_in_detail(detector, sample, args):
 
 def parse_arguments():
 
-    parser = argparse.ArgumentParser(description="CLARA: Context-aware Language-Augmented Retrieval Anomaly Detection with Llama-3.2-1B")
+    parser = argparse.ArgumentParser(description="CLARA: Context-aware Language-Augmented Retrieval Anomaly Detection with LLMs")
     
     # data and model paths    
     parser.add_argument("--csv-path", default=DEFAULT_CSV_PATH,

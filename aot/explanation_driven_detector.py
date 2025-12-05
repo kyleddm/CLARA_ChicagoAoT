@@ -1,5 +1,6 @@
 import json
 from typing import Dict, List, Tuple, Any, Optional
+import utilities as util
 ##2025DEC04##
 #The index might be present in this code.  Verify, then remove before ingestion.  Also check syntax.  Output still says "user" and "performed".  This needs to be removed.
 
@@ -14,25 +15,29 @@ class ExplanationDrivenDetector:
     def pattern_to_text(self, pattern: Dict[str, Any]) -> str:
         
         # extract metadata        
-        node_id = pattern.get('node_id', 'unknown')
-        subsystem = pattern.get('subsystem', 'unknown')
-        sensor = pattern.get('sensor', 'unknown')
-        parameter = pattern.get('parameter', 'unknown')
-        timestamp = pattern.get('timestamp', 'unknown')
+        #node_id = pattern.get('node_id', 'unknown')
+        #subsystem = pattern.get('subsystem', 'unknown')
+        #sensor = pattern.get('sensor', 'unknown')
+        #parameter = pattern.get('parameter', 'unknown')
+        #timestamp = pattern.get('timestamp', 'unknown')
         
-        text = f"Host {node_id} with {subsystem}, {sensor}, measuring {parameter} at {timestamp}\n\n"
+        #text = f"Node {node_id} with {subsystem}, {sensor}, measuring {parameter} at {timestamp}\n\n"
+        metadata,text,metadataKeys=util.extract_metadata(pattern)
         text += "Sensor readings:\n"
         
         # organize sensors by type        
         sensor_groups = {
-            'value_hrf': [],
+            'value': [],
+            'timestamp':[],
             'other':[]
         }
-        
+        #['node_id', 'subsystem', 'sensor', 'parameter']
         for key, value in pattern.items():
-            if key not in ['node_id', 'subsystem', 'sensor', 'parameter', 'timestamp'] and isinstance(value, (int, float)):
-                if 'value_hrf' in key.lower():
-                    sensor_groups['value_hrf'].append((key, value))
+            if key not in metadataKeys['ids'] and key not in metadataKeys['labels'] and isinstance(value, (int, float)):
+                if 'value' in key.lower():
+                    sensor_groups['value'].append((key, value))
+                elif 'timestamp' in key.lower():
+                    sensor_groups['timestamp'].append((key, value))
                 else:
                     sensor_groups['other'].append((key, value))
         
@@ -69,16 +74,25 @@ class ExplanationDrivenDetector:
         # add information about closest normal pattern        
         if normal_patterns:
             closest_normal = min(normal_patterns, key=lambda x: x.get('distance', float('inf')))
+            cn,cn_text,cn_keys=util.extract_metadata(closest_normal)
             text += "CLOSEST NORMAL PATTERN:\n"
             text += f"- Distance: {closest_normal.get('distance', 'unknown'):.4f}\n"
-            text += f"- sybsystem: {closest_normal.get('subsystem', 'unknown')}\n"
-            text += f"- sensor: {closest_normal.get('sensor', 'unknown')}\n"
-            text += f"- parameter: {closest_normal.get('parameter', 'unknown')}\n"
+            for key in closest_normal.keys():
+                if key in cn_keys['labels']:
+                    text += f"- {key}: {closest_normal.get(key, 'unknown')}\n"       
+            #text += f"- sybsystem: {closest_normal.get('subsystem', 'unknown')}\n"
+            #text += f"- sensor: {closest_normal.get('sensor', 'unknown')}\n"
+            #text += f"- parameter: {closest_normal.get('parameter', 'unknown')}\n"
             
             # add key sensor readings            
             for key, value in closest_normal.items():
-                if key in ['value_hrf'] and isinstance(value, (int, float)):
+                if 'value' in key and isinstance(value, (int, float)):
                     text += f"- {key}: {value:.4f}\n"
+            
+            # add key sensor timestamps            
+            for key, value in closest_normal.items():
+                if 'timestamp' in key:
+                    text += f"- {key}: {value}\n"
             
             description = closest_normal.get('description', '')
             if description:
@@ -89,17 +103,26 @@ class ExplanationDrivenDetector:
         # add information about closest anomaly pattern        
         if anomaly_patterns:
             closest_anomaly = min(anomaly_patterns, key=lambda x: x.get('distance', float('inf')))
+            ca,ca_text,ca_keys=util.extract_metadata(closest_anomaly)
             text += "CLOSEST ANOMALY PATTERN:\n"
             text += f"- Distance: {closest_anomaly.get('distance', 'unknown'):.4f}\n"
-            text += f"- sybsystem: {closest_anomaly.get('subsystem', 'unknown')}\n"
-            text += f"- sensor: {closest_anomaly.get('sensor', 'unknown')}\n"
-            text += f"- parameter: {closest_anomaly.get('parameter', 'unknown')}\n"
+            for key in closest_anomaly.keys():
+                if key in ca_keys['labels']:
+                    text += f"- {key}: {closest_anomaly.get(key, 'unknown')}\n"  
+            #text += f"- sybsystem: {closest_anomaly.get('subsystem', 'unknown')}\n"
+            #text += f"- sensor: {closest_anomaly.get('sensor', 'unknown')}\n"
+            #text += f"- parameter: {closest_anomaly.get('parameter', 'unknown')}\n"
             text += f"- Anomaly Type: {closest_anomaly.get('anomaly_type', 'unknown')}\n"
             
             # add key sensor readings            
             for key, value in closest_anomaly.items():
                 if key in ['value_hrf'] and isinstance(value, (int, float)):
                     text += f"- {key}: {value:.4f}\n"
+            
+            # add key sensor timestamps            
+            for key, value in closest_anomaly.items():
+                if 'timestamp' in key:
+                    text += f"- {key}: {value}\n"
             
             explanation = closest_anomaly.get('explanation', '')
             if explanation:
@@ -162,8 +185,10 @@ class ExplanationDrivenDetector:
         max_score = 3.0  # three criteria, each worth 1.0        
         # check if explanation references specific sensor values        
         sensor_refs = 0
+        metadata,text,meta_keys=util.extract_metadata(pattern)
+        #['node_id', 'subsystem','sensor','parameter']
         for key in pattern:
-            if key not in ['node_id', 'aubaystem','sensor','parameter', 'timestamp'] and isinstance(pattern[key], (int, float)):
+            if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(pattern[key], (int, float)):
                 if key in explanation.lower():
                     sensor_refs += 1
         
@@ -177,7 +202,7 @@ class ExplanationDrivenDetector:
         import re
         
         pattern_values = [v for k, v in pattern.items() 
-                         if k not in ['node_id', 'subsystem','sensor','parameter', 'timestamp'] 
+                         if k not in meta_keys['ids'] and key not in meta_keys['labels'] 
                          and isinstance(v, (int, float))]
         
         # extract numbers from explanation        
