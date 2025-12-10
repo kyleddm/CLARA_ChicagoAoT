@@ -12,8 +12,8 @@ from clara.feedback_loop_manager import FeedbackLoopManager
 #from clara.extrasensory_csv_loader import ExtraSensoryCSVLoader
 from aot.aot_csv_loader import AotCSVLoader
 from aot.contrastive_embedding_model import generate_sensor_embeddings_with_contrastive_learning
-from clara.sensor_data_augmenter import SensorDataAugmenter
-from clara.contextual_deviation_analyzer import ContextualDeviationAnalyzer
+from aot.sensor_data_augmenter import SensorDataAugmenter
+from aot.contextual_deviation_analyzer import ContextualDeviationAnalyzer
 from aot.explanation_driven_detector import ExplanationDrivenDetector
 from utilities import pruneTime
 from utilities import parse_json_args

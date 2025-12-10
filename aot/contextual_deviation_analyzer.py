@@ -1,6 +1,7 @@
 import json
 from typing import Dict, List, Tuple, Any, Optional
 import numpy as np
+import utilities as util
 
 class ContextualDeviationAnalyzer:
     
@@ -8,32 +9,40 @@ class ContextualDeviationAnalyzer:
         self.llm = llm_client
     
     def pattern_to_text(self, pattern: Dict[str, Any]) -> str:
-  
+        metadata,text,meta_keys=util.extract_metadata(pattern)
         # extract metadata        
-        host_id = pattern.get('hostID', 'unknown')
-        activity = pattern.get('activity', 'unknown')
-        timestamp = pattern.get('timestamp', 'unknown')
+        #host_id = pattern.get('hostID', 'unknown')
+        #activity = pattern.get('activity', 'unknown')
+        #timestamp = pattern.get('timestamp', 'unknown')
         
-        text = f"Host {host_id} performing {activity} at {timestamp}\n"
+        #text = f"Host {host_id} performing {activity} at {timestamp}\n"
         text += "Sensor readings:\n"
         
         # add sensor readings        
         for key, value in pattern.items():
-            if key not in ['hostID', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
+            #['hostID', 'activity', 'timestamp', 'uuid']
+            if key in meta_keys['values'] and isinstance(value, (int, float)):
                 text += f"- {key}: {value:.4f}\n"
         
         return text
     
     def context_to_text(self, context: Dict[str, Any]) -> str:
-
-        host_id = context.get('hostID', 'unknown')
-        activity = context.get('activity', 'unknown')
-        
-        text = f"Context: Host {host_id} performing {activity}\n"
-        
+        text = f"Context:\n"
+        metadata,text2,meta_keys=util.extract_metadata(context)
+        #node_id = context.get('node_id', 'unknown')
+        #activity = context.get('activity', 'unknown')
+        text += text2
+        #for key in meta_keys['ids']:
+        #    text += f"- Host with id {key}: {context.get(key, 'unknown')}\n"
+        #text += f"sensor-related identification: \n"
+        #for key in meta_keys['labels']:
+        #    text += f"- {key}: {context.get(key, 'unknown')}\n"
+         #"Host {host_id} performing {activity}\n"
+        text += f"sensor reradings: \n"
         # add additional context information        
         for key, value in context.items():
-            if key not in ['hostID', 'activity'] and isinstance(value, (str, int, float, bool)):
+            #not in ['hostID', 'activity']
+            if key in meta_keys['values'] and isinstance(value, (str, int, float, bool)):
                 text += f"- {key}: {value}\n"
         
         return text
@@ -48,18 +57,22 @@ class ContextualDeviationAnalyzer:
         # sort by similarity (distance)        
         sorted_patterns = sorted(retrieved_patterns, key=lambda x: x.get('distance', float('inf')))
         
-        for i, pattern in enumerate(sorted_patterns[:3]):  # limit to top 3 for clarity            
+        for i, pattern in enumerate(sorted_patterns[:3]):  # limit to top 3 for clarity
+            metadata,text2,meta_keys=util.extract_metadata(pattern)            
             distance = pattern.get('distance', 'unknown')
             is_anomaly = pattern.get('is_anomaly', False)
-            activity = pattern.get('activity', 'unknown')
-            
+            #activity = pattern.get('activity', 'unknown')
+            for key in meta_keys['labels']:
+                if key.lower() != 'distance' and key.lower() != 'is_anomaly':
+                    text += f"- {key}: {meta_keys.get(key, 'unknown')}\n"
             text += f"Pattern {i+1} (Distance: {distance:.4f}):\n"
-            text += f"- Activity: {activity}\n"
+            #text += f"- Activity: {activity}\n"
             text += f"- Is Anomaly: {'Yes' if is_anomaly else 'No'}\n"
             
             # add sensor readings            
             for key, value in pattern.items():
-                if key not in ['user_id', 'activity', 'timestamp', 'distance', 'is_anomaly', 'description', 'explanation'] and isinstance(value, (int, float)):
+                #['user_id', 'activity', 'timestamp', 'distance', 'is_anomaly', 'description', 'explanation']
+                if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(value, (int, float)):
                     text += f"- {key}: {value:.4f}\n"
             
             description = pattern.get('description', '') or pattern.get('explanation', '')

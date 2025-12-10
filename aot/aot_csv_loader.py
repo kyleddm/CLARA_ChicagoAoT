@@ -23,6 +23,8 @@ class AotCSVLoader:
                 # load the file as a pandas dataframe                
                 print(f"Loading Sensor data from {csv_file_path}...")
                 self.df = pd.read_csv(csv_file_path)
+                if 'Unnamed: 0' in list(self.df.columns):
+                    self.df=self.df.drop('Unnamed: 0',axis=1)#csv files saved with the index column
                 print(f"Successfully loaded data with {len(self.df)} rows and {len(self.df.columns)} columns")
             except Exception as e:
                 print(f"Error loading CSV file: {e}")

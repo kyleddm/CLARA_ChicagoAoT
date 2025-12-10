@@ -1,7 +1,8 @@
 {
     "csv_path":"./input/big2018-03-30_00.36.46.csv",
     "model":"llama3.2:1b",
-    "api_base": "http://10.10.170.74:11434",
+    "api_base": "http://127.0.0.1:11434",
+    "api_base_old": "http://10.10.170.74:11434",
     "vector_store":"./output/clara_aot/aot_vector_store.faiss",
     "feedback_log": "./output/clara_aot/feedback_log.json",
     "threshold":0.7,
