@@ -7,7 +7,7 @@ import torch
 import numpy as np
 from typing import Dict, List, Any, Optional
 
-from clara.clara_detector import CLARA
+from aot.clara_detector import CLARA
 from clara.feedback_loop_manager import FeedbackLoopManager
 #from clara.extrasensory_csv_loader import ExtraSensoryCSVLoader
 from aot.aot_csv_loader import AotCSVLoader
@@ -35,14 +35,7 @@ def initialize_detector(args):
     embedding_dim = args.embedding_dim
     
     # create the detector    
-    detector = CLARA(
-        vector_store_path=args.vector_store if os.path.exists(args.vector_store) else None,
-        llm_model_name=args.model,
-        llm_api_base=args.api_base,
-        embedding_dim=embedding_dim,
-        semantic_threshold=args.threshold,
-        coherence_threshold=args.coherence
-    )
+    detector = CLARA(arguments=args,vector_store_path=args.vector_store if os.path.exists(args.vector_store) else None,llm_model_name=args.model,llm_api_base=args.api_base,embedding_dim=embedding_dim,semantic_threshold=args.threshold,coherence_threshold=args.coherence)
     
     return detector
 
@@ -75,6 +68,7 @@ def load_training_data(detector, args):
     
     # get available nodes    
     nodes = csv_loader.get_available_nodes()
+    paramInfo=csv_loader.load_parameter_units(args.data_units_file)
     if not nodes:
         print("No nodes found in the dataset. Using synthetic data.")
         data = {"synthetic_node": csv_loader.generate_synthetic_data(args.max_samples)}
@@ -348,7 +342,10 @@ def analyze_sample_in_detail(detector, sample, args):
             return
         
         # 4. perform sensor data augmentation        
-        augmenter = SensorDataAugmenter()
+        augmenter = SensorDataAugmenter(args)
+        #print(f'~~~~~~TEST Sample:{sample}\n')
+        #print(f'~~~~~~TEST retreived patterns:{retrieved_patterns}\n')
+        
         augmented_prompt = augmenter.augment_sensor_data(sample, retrieved_patterns)
         print("\nAugmented Sensor Data (preview):")
         print(augmented_prompt[:200] + "...")
@@ -360,7 +357,7 @@ def analyze_sample_in_detail(detector, sample, args):
             "sensor": sample.get("sensor", "unknown"),
             "parameter": sample.get("parameter", "unknown")
         }
-        deviation_analyzer = ContextualDeviationAnalyzer(detector.llm)
+        deviation_analyzer = ContextualDeviationAnalyzer(detector.llm,args)
         try:
             ctx_anomaly_score, ctx_explanation = deviation_analyzer.analyze(
                 sample, context, retrieved_patterns
@@ -373,7 +370,7 @@ def analyze_sample_in_detail(detector, sample, args):
         
         # 6. perform explanation-driven detection        
         explanation_detector = ExplanationDrivenDetector(
-            detector.llm, coherence_threshold=detector.coherence_threshold
+            detector.llm, args,coherence_threshold=detector.coherence_threshold
         )
         try:
             exp_anomaly, exp_confidence, exp_explanation = explanation_detector.detect(
@@ -440,6 +437,10 @@ def parse_arguments():
     parser.add_argument("--use-config", action="store_true", help = "uses pre-defined json file containing all the configs for the detector")
     parser.add_argument("--config-path", type=str, default=DEFAULT_CONFIG_PATH)
     
+    parser.add_argument("--data-units-file",type=str, default='./input/sensors.csv')
+    
+    parser.add_argument("--data-headers", type=str, default='{"pres":"pressure", "temp": "temperature", "hum":"humidity", "cs":"chemsense","ls":"lightsense","ms":"metsense"}')
+    
     args = parser.parse_args()
     return args
 
@@ -472,6 +473,7 @@ def main():
     
     # run demonstration    
     anomalous_sample = run_detection_demo(detector, feedback_loop, args)
+    #print(f'TEST~~~\n{anomalous_sample}~~~~~~~~TEST\n')
     
     # detailed analysis of a sample    
     analyze_sample_in_detail(detector, anomalous_sample, args)

@@ -1,66 +1,71 @@
 import json
 import numpy as np
 from typing import Dict, List, Tuple, Any, Optional
+import utilities as util
 
 class SensorDataAugmenter:
     
-    def __init__(self, max_token_limit: int = 2048):
+    def __init__(self, args, max_token_limit: int = 2048):
 
         self.max_token_limit = max_token_limit
+        self.args=args
     
     def sensor_to_text(self, sensor_data: Dict[str, Any]) -> str:
 
-        # extract metadata        
-        host_id = sensor_data.get('hostID', 'unknown')
-        activity = sensor_data.get('activity', 'unknown')
-        timestamp = sensor_data.get('timestamp', '')
+        # extract metadata
+        metadata,text2,meta_keys=util.extract_metadata(sensor_data, self.args)
+        text=text2
+        #host_id = sensor_data.get('hostID', 'unknown')
+        #activity = sensor_data.get('activity', 'unknown')
+        #timestamp = sensor_data.get('timestamp', '')
         
         # start with a high-level description        
-        text = f"Host {host_id} performing {activity} at {timestamp}.\n\n"
+        #text = f"Host {host_id} performing {activity} at {timestamp}.\n\n"
         text += "Sensor readings:\n"
         
         # group sensors by type        
         sensor_groups = self._group_sensors(sensor_data)
-        
+        #print (f'TEST~~~SENSOR GROUPS: {sensor_groups}~~~TEST~~~\n')#THIS PRINTS NOTHING!  TEST THIS!!!
         # add each sensor group's readings        
         for group_name, sensors in sensor_groups.items():
             if sensors:
                 text += f"\n{group_name.upper()} SENSORS:\n"
                 for sensor_name, value in sensors:
                     text += f"- {sensor_name}: {value:.4f}\n"
-        
+        print(f"Sensor To Text: {text}")
         return text
     
     def _group_sensors(self, sensor_data: Dict[str, Any]) -> Dict[str, List[Tuple[str, float]]]:
-
-        sensor_groups = {
-            'accelerometer': [],
-            'gyroscope': [],
-            'magnetometer': [],
-            'location': [],
-            'other': []
-        }
+        metadata,text2,meta_keys=util.extract_metadata(sensor_data,self.args)
+        sensor_groups=util.extractSensorType(sensor_data)
+        #sensor_groups = {
+        #    'accelerometer': [],
+        #    'gyroscope': [],
+        #    'magnetometer': [],
+        #    'location': [],
+        #    'other': []
+        #}
         
-        for key, value in sensor_data.items():
-            # skip metadata fields            
-            if key in ['hostID', 'activity', 'timestamp', 'uuid']:
-                continue
-            
-            # skip non-numeric values            
-            if not isinstance(value, (int, float)):
-                continue
-            
-            # categorize by sensor type            
-            if 'acc' in key.lower():
-                sensor_groups['accelerometer'].append((key, value))
-            elif 'gyro' in key.lower() or 'rot' in key.lower():
-                sensor_groups['gyroscope'].append((key, value))
-            elif 'mag' in key.lower():
-                sensor_groups['magnetometer'].append((key, value))
-            elif 'lat' in key.lower() or 'lon' in key.lower() or 'gps' in key.lower():
-                sensor_groups['location'].append((key, value))
-            else:
-                sensor_groups['other'].append((key, value))
+        #for key, value in sensor_data.items():
+        #    # skip metadata fields            
+        #    if key in ['hostID', 'activity', 'timestamp', 'uuid']:
+        #        continue
+        #    
+        #    # skip non-numeric values            
+        #    if not isinstance(value, (int, float)):
+        #        continue
+        #    
+        #    # categorize by sensor type            
+        #    if 'acc' in key.lower():
+        #        sensor_groups['accelerometer'].append((key, value))
+        #    elif 'gyro' in key.lower() or 'rot' in key.lower():
+        #        sensor_groups['gyroscope'].append((key, value))
+        #    elif 'mag' in key.lower():
+        #        sensor_groups['magnetometer'].append((key, value))
+        #    elif 'lat' in key.lower() or 'lon' in key.lower() or 'gps' in key.lower():
+        #        sensor_groups['location'].append((key, value))
+        #    else:
+        #        sensor_groups['other'].append((key, value))
         
         # remove empty groups        
         return {k: v for k, v in sensor_groups.items() if v}
@@ -75,14 +80,22 @@ class SensorDataAugmenter:
         # sort by similarity (distance)        
         sorted_context = sorted(retrieved_context, key=lambda x: x.get('distance', float('inf')))
         
-        for i, pattern in enumerate(sorted_context[:5]):  # limit to top 5 for clarity            
+        for i, pattern in enumerate(sorted_context[:5]):  # limit to top 5 for clarity
+            metadata,text2,meta_keys=util.extract_metadata(pattern,self.args)            
             distance = pattern.get('distance', 'unknown')
             is_anomaly = pattern.get('is_anomaly', False)
-            activity = pattern.get('activity', 'unknown')
+            #activity = pattern.get('activity', 'unknown')
             description = pattern.get('description', '') or pattern.get('explanation', '')
-            
+            for key in meta_keys['labels']:
+                if key.lower() != 'distance' and key.lower() != 'is_anomaly' and key.lower() != 'description' and key.lower() != 'explanation':
+                    text += f"- {key}: {pattern.get(key, 'unknown '+str(key))}\n"
+                        # add sensor readings            
+            for key, value in pattern.items():
+                #['user_id', 'activity', 'timestamp', 'distance', 'is_anomaly', 'description', 'explanation']
+                if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(value, (int, float)):
+                    text += f"- {key}: {value:.4f}\n"
             text += f"PATTERN {i+1} (Distance: {distance:.4f}):\n"
-            text += f"- Activity: {activity}\n"
+            #text += f"- Activity: {activity}\n"
             text += f"- Is Anomaly: {'Yes' if is_anomaly else 'No'}\n"
             if description:
                 text += f"- Description: {description}\n"

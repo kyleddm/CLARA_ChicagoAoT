@@ -5,11 +5,11 @@ import utilities as util
 
 class ContextualDeviationAnalyzer:
     
-    def __init__(self, llm_client):
+    def __init__(self, llm_client, args):
         self.llm = llm_client
-    
+        self.args=args
     def pattern_to_text(self, pattern: Dict[str, Any]) -> str:
-        metadata,text,meta_keys=util.extract_metadata(pattern)
+        metadata,text,meta_keys=util.extract_metadata(pattern, self.args)
         # extract metadata        
         #host_id = pattern.get('hostID', 'unknown')
         #activity = pattern.get('activity', 'unknown')
@@ -28,7 +28,7 @@ class ContextualDeviationAnalyzer:
     
     def context_to_text(self, context: Dict[str, Any]) -> str:
         text = f"Context:\n"
-        metadata,text2,meta_keys=util.extract_metadata(context)
+        metadata,text2,meta_keys=util.extract_metadata(context, self.args)
         #node_id = context.get('node_id', 'unknown')
         #activity = context.get('activity', 'unknown')
         text += text2
@@ -58,13 +58,13 @@ class ContextualDeviationAnalyzer:
         sorted_patterns = sorted(retrieved_patterns, key=lambda x: x.get('distance', float('inf')))
         
         for i, pattern in enumerate(sorted_patterns[:3]):  # limit to top 3 for clarity
-            metadata,text2,meta_keys=util.extract_metadata(pattern)            
+            metadata,text2,meta_keys=util.extract_metadata(pattern, self.args)            
             distance = pattern.get('distance', 'unknown')
             is_anomaly = pattern.get('is_anomaly', False)
             #activity = pattern.get('activity', 'unknown')
             for key in meta_keys['labels']:
                 if key.lower() != 'distance' and key.lower() != 'is_anomaly':
-                    text += f"- {key}: {meta_keys.get(key, 'unknown')}\n"
+                    text += f"- {key}: {pattern.get(key, 'unknown '+str(key))}\n"
             text += f"Pattern {i+1} (Distance: {distance:.4f}):\n"
             #text += f"- Activity: {activity}\n"
             text += f"- Is Anomaly: {'Yes' if is_anomaly else 'No'}\n"

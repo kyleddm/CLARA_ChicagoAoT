@@ -12,9 +12,11 @@ class AotCSVLoader:
         
         self.csv_file_path = csv_file_path
         self.df = None
+        self.param_df=None
         #we truncated the data to reduce size, this tells us the meanings of the truncated components
         self.subsystem_def={'cs':'chemsense','ls':'lightsense','ms':'metsense','pt':'plantower'}
         self.param_def={'hum':'humidity','temp':'temperature','pres':'pressure'}
+        self.data_headers={**self.subsystem_def, **self.param_def}
         # verify the file exists        
         if not os.path.exists(csv_file_path):
             print(f"Warning: CSV file not found at {csv_file_path}")
@@ -25,10 +27,23 @@ class AotCSVLoader:
                 self.df = pd.read_csv(csv_file_path)
                 if 'Unnamed: 0' in list(self.df.columns):
                     self.df=self.df.drop('Unnamed: 0',axis=1)#csv files saved with the index column
-                print(f"Successfully loaded data with {len(self.df)} rows and {len(self.df.columns)} columns")
+                print(f"Successfully loaded data with {len(self.df)} rows and {len(self.df.columns)} columns\n")
+                print(f"columns in data: {self.df.columns}\n")
             except Exception as e:
                 print(f"Error loading CSV file: {e}")
-    
+        return
+    def load_parameter_units(self,sensorFile:str='./input/sensors.csv'):
+        if not os.path.exists(sensorFile):
+            print(f"Warning: CSV file not found at {sensorFile}")
+        else:
+            try:
+                # load the file as a pandas dataframe                
+                print(f"Loading Sensor data from {sensorFile}...")
+                self.param_df = pd.read_csv(sensorFile)
+                
+            except Exception as e:
+                print(f"Error loading CSV file: {e}")
+        return self.param_def
     def get_column_names(self) -> List[str]:
         
         if self.df is not None:

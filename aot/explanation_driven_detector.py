@@ -6,10 +6,11 @@ import utilities as util
 
 # for this, llm client can be anything. in our use-case, we went for ollama
 class ExplanationDrivenDetector:
-    def __init__(self, llm_client, coherence_threshold: float = 0.7):
+    def __init__(self, llm_client, args, coherence_threshold: float = 0.7):
 
         self.llm = llm_client
         self.coherence_threshold = coherence_threshold
+        self.args=args
     
     # this is where the sensor readings and metadata are needed to get textual representation of the pattern    
     def pattern_to_text(self, pattern: Dict[str, Any]) -> str:
@@ -22,7 +23,7 @@ class ExplanationDrivenDetector:
         #timestamp = pattern.get('timestamp', 'unknown')
         
         #text = f"Node {node_id} with {subsystem}, {sensor}, measuring {parameter} at {timestamp}\n\n"
-        metadata,text,metadataKeys=util.extract_metadata(pattern)
+        metadata,text,metadataKeys=util.extract_metadata(pattern, self.args)
         text += "Sensor readings:\n"
         
         # organize sensors by type        
@@ -74,7 +75,7 @@ class ExplanationDrivenDetector:
         # add information about closest normal pattern        
         if normal_patterns:
             closest_normal = min(normal_patterns, key=lambda x: x.get('distance', float('inf')))
-            cn,cn_text,cn_keys=util.extract_metadata(closest_normal)
+            cn,cn_text,cn_keys=util.extract_metadata(closest_normal,self.args)
             text += "CLOSEST NORMAL PATTERN:\n"
             text += f"- Distance: {closest_normal.get('distance', 'unknown'):.4f}\n"
             for key in closest_normal.keys():
@@ -103,7 +104,7 @@ class ExplanationDrivenDetector:
         # add information about closest anomaly pattern        
         if anomaly_patterns:
             closest_anomaly = min(anomaly_patterns, key=lambda x: x.get('distance', float('inf')))
-            ca,ca_text,ca_keys=util.extract_metadata(closest_anomaly)
+            ca,ca_text,ca_keys=util.extract_metadata(closest_anomaly,self.args)
             text += "CLOSEST ANOMALY PATTERN:\n"
             text += f"- Distance: {closest_anomaly.get('distance', 'unknown'):.4f}\n"
             for key in closest_anomaly.keys():
@@ -185,7 +186,7 @@ class ExplanationDrivenDetector:
         max_score = 3.0  # three criteria, each worth 1.0        
         # check if explanation references specific sensor values        
         sensor_refs = 0
-        metadata,text,meta_keys=util.extract_metadata(pattern)
+        metadata,text,meta_keys=util.extract_metadata(pattern, self.args)
         #['node_id', 'subsystem','sensor','parameter']
         for key in pattern:
             if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(pattern[key], (int, float)):
