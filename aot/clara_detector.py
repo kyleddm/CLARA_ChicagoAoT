@@ -36,7 +36,7 @@ class CLARA:
 
         self.augmenter = SensorDataAugmenter(self.args)
         self.deviation_analyzer = ContextualDeviationAnalyzer(self.llm,self.args)
-        self.explanation_detector = ExplanationDrivenDetector(self.llm, coherence_threshold)
+        self.explanation_detector = ExplanationDrivenDetector(self.llm, self.args, coherence_threshold)#2026JAN14; added args.  there might be an error in the code here.  coherence_threshold isn't a mandatory argument, but args is for ExplainationDrivenDetector.  this means the code likely set args as the coherence threshold, and used the default CT for all other computation.
         
     
         self.embedding_dim = embedding_dim
@@ -48,10 +48,12 @@ class CLARA:
     def _sensor_to_features(self, sensor_data: Dict[str, Any]) -> np.ndarray:
 
         features = []
-        
-        #  sensor readings in dictionary data format. tried multi-dimensional list, but it was taking too long.         
+        #print(f'sensor data: {sensor_data}')
+        #  sensor readings in dictionary data format. tried multi-dimensional list, but it was taking too long.
+        metadata,text2,meta_keys=util.extract_metadata(sensor_data, self.args)         
         for key, value in sorted(sensor_data.items()):
-            if key not in ['user_id', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
+            if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(value, (int, float)):
+            #if key not in ['user_id', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
                 features.append(float(value))
         if not features:
             features = [0.0] * 10
@@ -62,7 +64,7 @@ class CLARA:
         
         features = self._sensor_to_features(sensor_data)
 
-        print(f"Feature length: {len(features)}")
+        #print(f"Feature length: {len(features)}")
         # if we have a trained embedding model, use it       
         if self.embedding_model:
             try:
@@ -96,7 +98,7 @@ class CLARA:
             repeated_features = np.tile(features, repeat_times)
             embedding[0, :self.embedding_dim] = repeated_features[:self.embedding_dim]
 
-        print(f"Simple embedding shape: {embedding.shape}")
+        #print(f"Simple embedding shape: {embedding.shape}")
         
         return embedding
     
@@ -108,10 +110,10 @@ class CLARA:
         for data in sensor_data_list:
             feature_vector = self._sensor_to_features(data)
             features.append(feature_vector)
-            
-            # use activity as label            
-            activity = data.get('activity', 'unknown')
-            labels.append(hash(activity) % 100)  # this worked better than ohe. https://www.geeksforgeeks.org/python-hash-method/        
+            metadata,text2,meta_keys=util.extract_metadata(data, self.args)
+            #activity = data.get('activity', 'unknown')
+            for label in metadata['labels']:
+                labels.append(hash(label) % 100)  
         features_array = np.array(features, dtype=np.float32)
         labels_array = np.array(labels, dtype=np.int64)
         
@@ -135,6 +137,8 @@ class CLARA:
         embedding = self._create_embedding(sensor_data)
         metadata={}
         metadata,text2,meta_keys=util.extract_metadata(sensor_data, self.args)
+        metadata['is_anomaly']=False
+        metadata['description']=description or 'Normal sensor pattern'
         # prepare metadata        
         #metadata = {
         #    "hostID": sensor_data.get("hostID", "unknown"),
@@ -150,7 +154,8 @@ class CLARA:
             if key in meta_keys['values'] and isinstance(value, (int, float)):
                 metadata[key] = value
             if key in meta_keys['timestamps']:
-                timVal=util.pruneTime(str(value))
+                timVal=str(value)
+                #timVal=util.pruneTime(str(value))
                 metadata[key] = timVal
         
         # add to vector store       
@@ -175,20 +180,32 @@ class CLARA:
         """
         
         embedding = self._create_embedding(sensor_data)
-        
-        metadata = {
-            "hostID": sensor_data.get("hostID", "unknown"),
-            "activity": sensor_data.get("activity", "unknown"),
-            "timestamp": sensor_data.get("timestamp", ""),
-            "is_anomaly": True,
-            "anomaly_type": anomaly_type,
-            "explanation": explanation
-        }
+        metadata,text2,meta_keys=util.extract_metadata(sensor_data, self.args)
+        metadata['is_anomaly']=True
+        metadata['anomaly_type']=anomaly_type
+        metadata["explanation"]=explanation
+        #metadata = {
+        #    "hostID": sensor_data.get("hostID", "unknown"),
+        #    "activity": sensor_data.get("activity", "unknown"),
+        #    "timestamp": sensor_data.get("timestamp", ""),
+        #    "is_anomaly": True,
+        #    "anomaly_type": anomaly_type,
+        #    "explanation": explanation
+        #}
         
         # include sensor readings to metadata for comparison        
+        #for key, value in sensor_data.items():
+        #    if key not in ['hostID', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
+        #        metadata[key] = value
+                # add sensor readings to metadata for comparison        
         for key, value in sensor_data.items():
-            if key not in ['hostID', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
+            #if key not in ['hostID', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
+            if key in meta_keys['values'] and isinstance(value, (int, float)):
                 metadata[key] = value
+            if key in meta_keys['timestamps']:
+                timVal=str(value)
+                #timVal=util.pruneTime(str(value))
+                metadata[key] = timVal
         
         # send it to db        
         pattern_id = self.vector_store.add_embedding(embedding, metadata)
@@ -208,16 +225,28 @@ class CLARA:
         """
         # create embedding for the query        
         query_embedding = self._create_embedding(sensor_data)
-        
+        #metadata2,text2,meta_keys=util.extract_metadata(sensor_data, self.args)
+        #print(f'SENSOR DATA!!!: {sensor_data}')
         # perform retrieval        
-        if "hostID" in sensor_data:
-            # first try host-specific search            
-            host_id = sensor_data.get("hostID")
+        if any('id' in s for s in sensor_data.keys()):#"hostID" in sensor_data:
+            
+            # first try host-specific search
+            matching= [s for s in sensor_data.keys() if 'id' in s]            
+            
+            host_id = sensor_data.get(matching[0])#sensor_data.get("hostID")
+            print(f'GOT ID!!: {matching[0]}:{host_id}\n')
             distances, metadata = self.vector_store.search(
                 query_embedding, 
                 k=k, 
-                filter_func=lambda meta: meta.get('hostID') == host_id
+                filter_func=lambda meta: meta.get(matching[0])==host_id #meta.get('hostID') == host_id
             )
+            print(f'RETREIVED DISTANCES!!: {distances}\n')
+            print(f'RETREIVED METADATA!!: {metadata}\n')
+            
+            print('Testing what comes out of the FAISS search:\n')
+            test_dist, test_meta=self.vector_store.search(query_embedding, k)
+            print(f'RETREIVED TEST DISTANCES!!: {test_dist}\n')
+            print(f'RETREIVED TEST METADATA!!: {test_meta}\n')
             
             # if not enough results, do a general search            
             if len([d for d in distances if d != float('inf')]) < k // 2:
@@ -235,7 +264,7 @@ class CLARA:
                 
                 # add general results that aren't already included                
                 for d, m in zip(general_distances, general_metadata):
-                    if m.get('hostID') != host_id:
+                    if m.get(matching[0]) != host_id:#m.get('hostID') != host_id:
                         combined_distances.append(d)
                         combined_metadata.append(m)
                 
@@ -330,6 +359,7 @@ class CLARA:
         returns:
             result: dictionary containing detection results and explanations
         """
+        
         # multi-query retrieval   
         retrieved_patterns = self.multi_query_retrieval(sensor_data)
         
@@ -349,11 +379,16 @@ class CLARA:
             return self._rule_based_analysis(sensor_data, retrieved_patterns, 
                                             semantic_anomaly, metrics)
         
-        # contextual deviation analysis      
-        context = {
-            "hostID": sensor_data.get("hostID", "unknown"),
-            "activity": sensor_data.get("activity", "unknown")
-        }
+        # contextual deviation analysis
+        metadata,text2,meta_keys=util.extract_metadata(sensor_data, self.args)
+        context={}
+        for key, value in sensor_data.items():
+            if key in meta_keys['ids'] or key in meta_keys['labels']:
+                  context[key]=sensor_data.get(key,'unknown')
+        #context = {
+        #    "hostID": sensor_data.get("hostID", "unknown"),
+        #    "activity": sensor_data.get("activity", "unknown")
+        #}
         
         ctx_anomaly_score, ctx_explanation = self.deviation_analyzer.analyze(
             sensor_data, 
@@ -445,17 +480,20 @@ class CLARA:
             "user_friendly_message": user_friendly_message,
             "notable_deviations": notable_deviations,
             "recommended_actions": recommended_actions,
-            "similar_patterns": [
-                {
-                    "distance": p.get("distance", float("inf")),
-                    "is_anomaly": p.get("is_anomaly", False),
-                    "activity": p.get("activity", "unknown"),
-                    "description": p.get("description", "") or p.get("explanation", "")
-                }
-                for p in retrieved_patterns[:3]  # include only top 3 for testing purposes            
-                ]
+            "similar_patterns": []
+                #{
+                #    "distance": p.get("distance", float("inf")),
+                #    "is_anomaly": p.get("is_anomaly", False),
+                #    "activity": p.get("activity", "unknown"),
+                #    "description": p.get("description", "") or p.get("explanation", "")
+                #}]     
         }
-        
+        for p in retrieved_patterns[:3]:# include only top 3 for testing purposes
+            #print(f'P!!!!: {p}')            
+            sim_pat={}
+            for key in p:
+                sim_pat[key]=p[key]
+            result['similar_patterns'].append(sim_pat)
         return result
     
     def _rule_based_analysis(self, 
@@ -518,16 +556,20 @@ class CLARA:
             "anomaly_type": anomaly_type if is_anomaly else None,
             "explanation": explanation,
             "similar_patterns": [
-                {
-                    "distance": p.get("distance", float("inf")),
-                    "is_anomaly": p.get("is_anomaly", False),
-                    "activity": p.get("activity", "unknown"),
-                    "description": p.get("description", "") or p.get("explanation", "")
-                }
-                for p in retrieved_patterns[:3]           
+                #{
+                #    "distance": p.get("distance", float("inf")),
+                #    "is_anomaly": p.get("is_anomaly", False),
+                #    "activity": p.get("activity", "unknown"),
+                #    "description": p.get("description", "") or p.get("explanation", "")
+                #}
+                #for p in retrieved_patterns[:3]           
                 ]
         }
-        
+        for p in retrieved_patterns[:3]:# include only top 3 for testing purposes            
+            sim_pat={}
+            for key, val in p:
+                sim_pat[key]=val
+            result['similar_patterns'].append(sim_pat)
         return result
     
     def save(self, vector_store_path: str) -> None:

@@ -6,7 +6,7 @@ import json
 import torch
 import numpy as np
 from typing import Dict, List, Any, Optional
-
+import traceback
 from aot.clara_detector import CLARA
 from clara.feedback_loop_manager import FeedbackLoopManager
 #from clara.extrasensory_csv_loader import ExtraSensoryCSVLoader
@@ -102,15 +102,17 @@ def load_training_data(detector, args):
             labels = []
             for sample in all_samples:
                 #extract numerical features.  Time (without the year) is used here since it's very relevant
-                feature_vector=[pruneTime(sample['timestamp']),sample['value_hrf']]
+                feature_vector=[sample['timestamp'],sample['value_hrf']]
+                #feature_vector=[pruneTime(sample['timestamp']),sample['value_hrf']]
                 if feature_vector:
                     features.append(feature_vector)
                     #we're going to use subsystem, sensor, and parameter labels as relevant data for the feature, but these need to be made into embeddings
-                    subsys_sen=hash((sample['subsystem']+'_'+sample['sensor']) % 100)
+                    subsys=hash(sample['subsystem'] % 100)
+                    sen=hash(sample['sensor'] % 100)
                     #we combine the subsystem (make) and sensor (model) together because what matters is the similarity between srnsors of similar parameters; we don't want CLARA adding the same weight to two temp sensors of different models and two completely different sensors of similar make
                     #sen=hash(sample['sensor'] % 100)
                     param=hash(sample['parameter'] % 100)
-                    labels.append([subsys_sen,param])
+                    labels.append([subsys,sen,param])
                     
                     
             #for sample in all_samples:
@@ -168,6 +170,7 @@ def load_training_data(detector, args):
         
         # add normal patterns        
         for i, sample in enumerate(normal_samples):
+            #print(f'NORMAL SAMPLE INFO!!: {samples}\n')
             if i % 10 == 0:
                 print(f"  Added {i}/{len(normal_samples)} normal patterns...", end="\r")
             
@@ -181,9 +184,10 @@ def load_training_data(detector, args):
         
         # add anomaly patterns        
         for i, sample in enumerate(anomaly_samples):
+            #print(f'ANOMALY SAMPLE INFO!!: {samples}\n')
             # modify samples to make them more anomalous            
             for key in sample:
-                if key not in ['user_id', 'subsystem','sensor','parameter', 'timestamp'] and isinstance(sample[key], (int, float)):
+                if key not in ['node_id', 'subsystem','sensor','parameter', 'timestamp'] and isinstance(sample[key], (int, float)):
                     # randomly increase or decrease by a factor                    
                     if i % 2 == 0:
                         sample[key] = sample[key] * 2.5
@@ -291,6 +295,7 @@ def run_detection_demo(detector, feedback_loop, args):
             
         except Exception as e:
             print(f"Error during detection: {e}")
+            traceback.print_exc()
             print("Trying rule-based detection instead...")
             
             try:
@@ -348,6 +353,7 @@ def analyze_sample_in_detail(detector, sample, args):
         
         augmented_prompt = augmenter.augment_sensor_data(sample, retrieved_patterns)
         print("\nAugmented Sensor Data (preview):")
+        
         print(augmented_prompt[:200] + "...")
         
         # 5. perform contextual deviation analysis        
@@ -367,7 +373,7 @@ def analyze_sample_in_detail(detector, sample, args):
             print(f"  Explanation: {ctx_explanation[:100]}...")
         except Exception as e:
             print(f"Error in contextual deviation analysis: {e}")
-        
+            traceback.print_exc()
         # 6. perform explanation-driven detection        
         explanation_detector = ExplanationDrivenDetector(
             detector.llm, args,coherence_threshold=detector.coherence_threshold
@@ -382,7 +388,7 @@ def analyze_sample_in_detail(detector, sample, args):
             print(f"  Explanation: {exp_explanation[:100]}...")
         except Exception as e:
             print(f"Error in explanation-driven detection: {e}")
-        
+            traceback.print_exc()
         # 7. run full clara detection        
         result = detector.detect_anomalies(sample, use_llm=True)
         
@@ -391,8 +397,9 @@ def analyze_sample_in_detail(detector, sample, args):
         print(json.dumps(result, indent=2))
         
     except Exception as e:
+        
         print(f"Error during detailed analysis: {e}")
-
+        traceback.print_exc()
 
 def parse_arguments():
 

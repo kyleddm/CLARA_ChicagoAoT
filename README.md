@@ -139,6 +139,9 @@ If you use CLARA in your research, please cite:
 ### TODO
 - generalize CLARA so any data type can be used
 - general code cleanup and documentation
+- fix the units section of utilities as it's displaying class info rather than just the unit
+- retreived context is missing now that I generalized the ID.  Need to find out why
+- the metedata isn't concise enough.  There's too many discrepencies.  old ExtraSensory labels, combinations of the csv headers and the generalized headers, the erronous unnamed: 0 index header that needs to get stripped from the file.  This needs to be cleaned.
 
 ### License
 MIT

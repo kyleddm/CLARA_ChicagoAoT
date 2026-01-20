@@ -58,11 +58,11 @@ class ContextualDeviationAnalyzer:
         sorted_patterns = sorted(retrieved_patterns, key=lambda x: x.get('distance', float('inf')))
         
         for i, pattern in enumerate(sorted_patterns[:3]):  # limit to top 3 for clarity
-            metadata,text2,meta_keys=util.extract_metadata(pattern, self.args)            
+            #metadata,text2,meta_keys=util.extract_metadata(pattern, self.args)            #Don't think this is needed here.  I think it's double-extracting
             distance = pattern.get('distance', 'unknown')
             is_anomaly = pattern.get('is_anomaly', False)
             #activity = pattern.get('activity', 'unknown')
-            for key in meta_keys['labels']:
+            for key in pattern['labels']:
                 if key.lower() != 'distance' and key.lower() != 'is_anomaly':
                     text += f"- {key}: {pattern.get(key, 'unknown '+str(key))}\n"
             text += f"Pattern {i+1} (Distance: {distance:.4f}):\n"
@@ -72,7 +72,7 @@ class ContextualDeviationAnalyzer:
             # add sensor readings            
             for key, value in pattern.items():
                 #['user_id', 'activity', 'timestamp', 'distance', 'is_anomaly', 'description', 'explanation']
-                if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(value, (int, float)):
+                if key not in pattern['ids'] and key not in pattern['labels'] and isinstance(value, (int, float)):
                     text += f"- {key}: {value:.4f}\n"
             
             description = pattern.get('description', '') or pattern.get('explanation', '')

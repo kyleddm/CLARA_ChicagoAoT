@@ -4,11 +4,20 @@ import json
 from argparse import Namespace
 from typing import Dict, List, Tuple, Any, Optional
 import pandas as pd
+#from . import config  # relative import
 #example timestamp 2020/06/14 00:05:58
 # Example timestamp string and timezone
 #timestamp_str = '2025/11/21 15:30:00'
+DEFAULT_CONFIG='./config.json'
 timestart_str = '2025/01/01 00:00:00'
+def load_config(config_file:str=DEFAULT_CONFIG):
+    conf=''
+    with open(config_file,'r') as cf:
+        conf=json.load(cf)
+    return conf
 
+
+config=load_config(DEFAULT_CONFIG)
 
 def calcSecDiff(endTime:str, startTime:str=timestart_str, timezone_str:str='America/Chicago', verbose=False)->int:
     #timezone_str = 'America/Chicago'
@@ -32,12 +41,13 @@ def calcSecDiff(endTime:str, startTime:str=timestart_str, timezone_str:str='Amer
     return yearSeconds
 
 def pruneTime(inDate:str, timezone_str='America/Chicago'):
-    #strip the year from the given date
-    myDate=datetime.strptime(inDate, "%Y/%m/%d %H:%M:%S")
-    myYear=str(myDate.year)
-    startTime=myYear+'/01/01 00:00:00'
-    yearSecs=calcSecDiff(startTime,inDate, timezone_str=timezone_str, verbose=False)
-    return yearSecs
+#    #strip the year from the given date
+#    myDate=datetime.strptime(inDate, "%Y/%m/%d %H:%M:%S")
+#    myYear=str(myDate.year)
+#    startTime=myYear+'/01/01 00:00:00'
+#    yearSecs=calcSecDiff(inDate,startTime, timezone_str=timezone_str, verbose=False)
+#    return yearSecs
+    return
 
 def parse_json_args(args):
     args_dict=vars(args)#convert the arguments from the parser into a dictionary to compare values
@@ -60,6 +70,7 @@ def parse_json_args(args):
     return args2
 
 def extract_metadata(pattern: Dict[str, Any],args):
+    #Note: need a concise way to prune the timestamp at time of pattern storage and sample check.
     id_keys=[key for key in pattern if 'id' in key.lower()]
     value_keys=[key for key in pattern if 'value' in key.lower()]
     timestamp_keys=[key for key in pattern if ('timestamp' in key.lower() or 'date' in key.lower())]
@@ -70,8 +81,9 @@ def extract_metadata(pattern: Dict[str, Any],args):
     values=[]
     timestamps=[]
     labels=[]
-    data_headers=args.data_headers
     
+    data_headers=args.data_headers
+    #print(f'DATA HEADERS!!!: {data_headers}')
     for key in id_keys:
         ids.append(pattern.get(key, 'unknown'))
     for key in value_keys:
@@ -79,39 +91,57 @@ def extract_metadata(pattern: Dict[str, Any],args):
     for key in timestamp_keys:
         ts=pattern.get(key, 'unknown')
         if ts!='unknown':
-            timestamps.append(pruneTime(ts))
+            timestamps.append(ts)
     for key in label_keys:
         key2=pattern.get(key, 'unknown')
+        #print(f'key: {key}, key2: {key2}, data headers keys: {data_headers.keys()}')
         if key2 in data_headers.keys():
             key2=data_headers[key2]
         labels.append(key2)
 
     metadata={'timestamps':timestamps,'ids':ids,'values':values,'labels':labels}
-    
+    #print(f'CONIFG:{config}')
+    headers=config['data_headers']
     #adding a loader for sensor context here.  This should really be done in a manner where this is a class that can be loaded into a file, but that would require extensive modifications, so we're going to hold off for now.
     sen_meta=pd.read_csv(args.data_units_file)
     subsys=False
     sen=False
     param=False
+    units=None
+    #print(f'LABEL KEYS:{label_keys}')
+    #print(f'SEN_META_KEYS{sen_meta.keys()}')
     for key in label_keys:
+        val=pattern.get(key, 'unknown')
         if key in "subsystem":
             subsys=True
-            subsystem=pattern.get(key, 'unknown')
+            if val in headers.keys():
+                subsystem=headers[val]
+            else:
+                subsystem=val
         if key in "sensor":
             sen=True
-            sensor=pattern.get(key, 'unknown')
+            if val in headers.keys():
+                sensor=headers[val]
+            else:
+                sensor=val
         if key in "parameter":
             param=True
-            parameter=pattern.get(key, 'unknown')
+            if val in headers.keys():
+                parameter=headers[val]
+            else:
+                parameter=val
         if subsys and sen and param:
-            #check the list of sensor metadata to determine th eproper units for the sensor
+            #check the list of sensor metadata to determine the proper units for the sensor
+            #print(f'SUBSYSTEM:{subsystem} SENSOR:{sensor} PARAMETER:{parameter}')
             result=sen_meta[(sen_meta['subsystem']==subsystem)&(sen_meta['sensor']==sensor)&(sen_meta['parameter']==parameter)]
-            units=result['hrf_unit']
+            #print(f'RESULT:{result}')
+            units=result['hrf_unit']#.iloc[1]
     
            
     ##Note the units variable is still a series.  We need to read into it.
     #!!!!!this text needs to be edited to expand the sensor types (pres to pressure, temp, to temperature), add readings, and explain that the time is the number of seconds past the start year.!!!!
-    text = f"Host {",".join(map(str,ids))} with {",".join(map(str,labels))}, measuring units {units} at time {",".join(map(str,timestamps))} s since start point\n\n"
+    
+    text = f"Host {",".join(map(str,ids))} with {",".join(map(str,labels))}, measuring units {units} at time {",".join(map(str,timestamps))} \n\n"
     return metadata, text, keys
 
 def extractSensorType(pattern: Dict[str, Any]):
@@ -125,15 +155,16 @@ def extractSensorType(pattern: Dict[str, Any]):
     #}
     #print(f'TEST~~~PATTERN: {pattern}~~~TEST')
     for key in pattern.keys():
-        print(f'pattern key:{key}')
+        #print(f'pattern key:{key}')
         if key.lower() == 'parameter':
             if pattern[key] in sensor_groups.keys():
                 sensor_groups[pattern[key]].append((pattern[key],pattern['value_hrf']))
             else:
                 sensor_groups[pattern[key]]=[(pattern[key],pattern['value_hrf'])]
         if key.lower() =='timestamp':
+            #Note: need a concise way to prune the timestamp at time of pattern storage and sample check.
             if pattern[key] in sensor_groups.keys():
-                sensor_groups['timestamp'].append(('timestamp',pruneTime(pattern['timestamp'])))
+                sensor_groups['timestamp'].append(('timestamp',pattern['timestamp']))
             else:
-                sensor_groups['timestamp']=[('timestamp',pruneTime(pattern['timestamp']))]
+                sensor_groups['timestamp']=[('timestamp',pattern['timestamp'])]
     return sensor_groups

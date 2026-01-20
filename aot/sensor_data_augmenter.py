@@ -29,9 +29,9 @@ class SensorDataAugmenter:
         # add each sensor group's readings        
         for group_name, sensors in sensor_groups.items():
             if sensors:
-                text += f"\n{group_name.upper()} SENSORS:\n"
+                text += f'\n{group_name.upper()} SENSORS:\n'
                 for sensor_name, value in sensors:
-                    text += f"- {sensor_name}: {value:.4f}\n"
+                    text += f'- {sensor_name}: {value}\n'
         print(f"Sensor To Text: {text}")
         return text
     
@@ -81,18 +81,19 @@ class SensorDataAugmenter:
         sorted_context = sorted(retrieved_context, key=lambda x: x.get('distance', float('inf')))
         
         for i, pattern in enumerate(sorted_context[:5]):  # limit to top 5 for clarity
-            metadata,text2,meta_keys=util.extract_metadata(pattern,self.args)            
+            #print(f'CONTEXT TO TEXT CHECK!! pattern: {pattern}')
+            #metadata,text2,meta_keys=util.extract_metadata(pattern,self.args)#this might not be needed here; I may be re-extracting data already stored.
             distance = pattern.get('distance', 'unknown')
             is_anomaly = pattern.get('is_anomaly', False)
             #activity = pattern.get('activity', 'unknown')
             description = pattern.get('description', '') or pattern.get('explanation', '')
-            for key in meta_keys['labels']:
+            for key in pattern['labels']:
                 if key.lower() != 'distance' and key.lower() != 'is_anomaly' and key.lower() != 'description' and key.lower() != 'explanation':
                     text += f"- {key}: {pattern.get(key, 'unknown '+str(key))}\n"
                         # add sensor readings            
             for key, value in pattern.items():
                 #['user_id', 'activity', 'timestamp', 'distance', 'is_anomaly', 'description', 'explanation']
-                if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(value, (int, float)):
+                if key not in pattern['ids'] and key not in pattern['labels'] and isinstance(value, (int, float)):
                     text += f"- {key}: {value:.4f}\n"
             text += f"PATTERN {i+1} (Distance: {distance:.4f}):\n"
             #text += f"- Activity: {activity}\n"
@@ -185,7 +186,6 @@ class SensorDataAugmenter:
     
     def augment_sensor_data(self, sensor_data: Dict[str, Any], 
                            retrieved_context: List[Dict[str, Any]]) -> str:
-
         # convert sensor data to text     
         sensor_text = self.sensor_to_text(sensor_data)
         

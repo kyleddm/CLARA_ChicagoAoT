@@ -75,11 +75,12 @@ class ExplanationDrivenDetector:
         # add information about closest normal pattern        
         if normal_patterns:
             closest_normal = min(normal_patterns, key=lambda x: x.get('distance', float('inf')))
-            cn,cn_text,cn_keys=util.extract_metadata(closest_normal,self.args)
+            #print(f'EDD CLOSEST_NORMAL!!:{closest_normal}')
+            #cn,cn_text,cn_keys=util.extract_metadata(closest_normal,self.args)#might not be needed.  may be double-extracting.
             text += "CLOSEST NORMAL PATTERN:\n"
             text += f"- Distance: {closest_normal.get('distance', 'unknown'):.4f}\n"
             for key in closest_normal.keys():
-                if key in cn_keys['labels']:
+                if key in closest_normal['labels']:
                     text += f"- {key}: {closest_normal.get(key, 'unknown')}\n"       
             #text += f"- sybsystem: {closest_normal.get('subsystem', 'unknown')}\n"
             #text += f"- sensor: {closest_normal.get('sensor', 'unknown')}\n"
@@ -190,8 +191,13 @@ class ExplanationDrivenDetector:
         #['node_id', 'subsystem','sensor','parameter']
         for key in pattern:
             if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(pattern[key], (int, float)):
-                if key in explanation.lower():
-                    sensor_refs += 1
+                #print(f'EXPLANATION!!: {explanation}')
+                if isinstance(explanation,dict):
+                    if key in explanation['explanation'].lower():
+                        sensor_refs += 1
+                elif isinstance(explanation,str):    
+                    if key in explanation.lower():
+                        sensor_refs += 1
         
         # score based on sensor references (max 1.0)        
         if sensor_refs >= 3:
@@ -247,6 +253,8 @@ class ExplanationDrivenDetector:
             confidence: confidence score (0 to 1)
             explanation: explanation of the analysis
         """
+        print(f'PATTERN!!: {pattern}\n')
+        print(f'RETREIVED CONTEXT!!: {retrieved_context}\n')
         # convert pattern to text        
         pattern_text = self.pattern_to_text(pattern)
         
@@ -274,6 +282,7 @@ class ExplanationDrivenDetector:
             # include notable deviations if available            
             notable_deviations = result.get('notable_deviations', [])
             if notable_deviations:
+                print(f'notable deviations: {notable_deviations}')
                 if isinstance(notable_deviations, list):
                     explanation += "\n\nNotable deviations:\n- " + "\n- ".join(notable_deviations)
                 else:
