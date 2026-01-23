@@ -3,6 +3,7 @@ import numpy as np
 import os
 import time
 from typing import Dict, List, Any, Optional, Tuple
+from operator import itemgetter
 
 class AotCSVLoader:
     #cols: timestamp,node_id,subsystem,sensor,parameter,value_hrf
@@ -25,12 +26,23 @@ class AotCSVLoader:
                 # load the file as a pandas dataframe                
                 print(f"Loading Sensor data from {csv_file_path}...")
                 self.df = pd.read_csv(csv_file_path)
-                if 'Unnamed: 0' in list(self.df.columns):
-                    self.df=self.df.drop('Unnamed: 0',axis=1)#csv files saved with the index column
                 print(f"Successfully loaded data with {len(self.df)} rows and {len(self.df.columns)} columns\n")
                 print(f"columns in data: {self.df.columns}\n")
             except Exception as e:
                 print(f"Error loading CSV file: {e}")
+            try:
+                self.df.rename(columns={'value_hrf':'value'},inplace=True)
+                print(f'generalized value column: {self.df.columns}\n')
+                if 'Unnamed: 0' in list(self.df.columns):
+                    self.df=self.df.drop('Unnamed: 0',axis=1)#csv files saved with the index column
+                    print(f'dumped old index column column: {self.df.columns}\n')
+                self.df['subsystem'] = self.df['subsystem'].apply(lambda x: 'chemsense' if x == 'cs' else ('lightsense' if x=='ls' else ('metsense' if x=='ms' else('plantower' if x=='pt' else (x)))))
+                self.df['parameter'] = self.df['parameter'].apply(lambda x: 'humidity' if x == 'hum' else ('temperature' if x=='temp' else ('pressure' if x=='pres' else(x))))
+                print(f'expanded subsystem names: {self.df.columns}\n')
+                
+                print(f"New columns in data: {self.df.columns}\n")
+            except Exception as e:
+                print(f'Error parsing dataframe: {e}')
         return
     def load_parameter_units(self,sensorFile:str='./input/sensors.csv'):
         if not os.path.exists(sensorFile):
@@ -38,7 +50,7 @@ class AotCSVLoader:
         else:
             try:
                 # load the file as a pandas dataframe                
-                print(f"Loading Sensor data from {sensorFile}...")
+                print(f"Loading Sensor info from {sensorFile}...")
                 self.param_df = pd.read_csv(sensorFile)
                 
             except Exception as e:
@@ -124,22 +136,32 @@ class AotCSVLoader:
     def filter_data(self, node: str = None, subsystem: str = None, sensor:str = None, parameter:str = None, max_samples: int = None) -> List[Dict[str, Any]]:
 
         if self.df is None:
+            print("There is no data to sample!\n")
             return []
         
         # apply filters        
         filtered_df = self.df
         
-        if node is not None and 'node_id' in self.df.columns:
-            filtered_df = filtered_df[filtered_df['node_id'] == node]
-        
-        if subsystem is not None and 'subsystem' in self.df.columns:
-            filtered_df = filtered_df[filtered_df['subsystem'] == subsystem]
-        
-        if sensor is not None and 'sensor' in self.df.columns:
-            filtered_df = filtered_df[filtered_df['sensor'] == sensor]
-        
-        if parameter is not None and 'parameter' in self.df.columns:
-            filtered_df = filtered_df[filtered_df['parameter'] == sensor]
+        if node is not None:
+            if 'node_id' in self.df.columns:
+                filtered_df = filtered_df[filtered_df['node_id'] == node]
+            else:
+                print(f'Did not find {node} in known subsystems')
+        if subsystem is not None:
+            if 'subsystem' in self.df.columns:
+                filtered_df = filtered_df[filtered_df['subsystem'] == subsystem]
+            else:
+                print(f'Did not find {subsystem} in known subsystems')
+        if sensor is not None: 
+            if 'sensor' in self.df.columns:
+                filtered_df = filtered_df[filtered_df['sensor'] == sensor]
+            else:
+                print(f'Did not find {sensor} in known sensors')
+        if parameter is not None: 
+            if 'parameter' in self.df.columns:
+                filtered_df = filtered_df[filtered_df['parameter'] == sensor]
+            else:
+                print(f'Did not find {parameter} in known parameters')
         
         # limit samples if specified        
         if max_samples is not None:
@@ -221,92 +243,237 @@ class AotCSVLoader:
     def generate_synthetic_data(self, num_samples: int = 10) -> List[Dict[str, Any]]:
         #for AOT data, this fails because a column can have any type of data in it.  in order to do this effectively, I would need to make each sensor have it's own column, then merge the raw and real values together somehow.  Probably a good idea to drop the value_raw column since it doesn't mesh with the reported sensor ranges
         #cols: timestamp,node_id,subsystem,sensor,parameter,value_raw,value_hrf
+        comparison_df = None
+        df1 = None
+        df2 = None
+        df3 = None
         data = []
-        comparison_df=self.filter_data(node=None, subsystem='ms', sensor='tsys01', parameter='temp', max_samples=None)#since data is unique by ROW, we need to sample from rows to get these values.  This is a test case only! 2025NOV21
+        
+        df1=self.filter_data(node=None, subsystem='metsense', sensor='tsys01', parameter='temperature', max_samples=None)#since data is unique by ROW, we need to sample from rows to get these values.  This is a test case only! 2025NOV21
+        print(f'DF1!!!:{df1}\n')
+        df2=self.filter_data(node=None, subsystem='metsense', sensor='htu21d', parameter='humidity', max_samples=None)
+        df3=self.filter_data(node=None, subsystem='chemsense', sensor='lps25h', parameter='pressure', max_samples=None)
+        comparison_df = df1 + df2 + df3 #pd.concat([df1, df2, df3], ignore_index=True)
+        #try: Don;t need to sort.  only usinf this list to make sure we got samples.
+            #comparison_df=comparison_df.sort_values(by='timestamp', ascending=True).reset_index(drop=True)
+        #    comparison_df = sorted(comparison_df, key=itemgetter("timestamp"))
+        #except KeyError as e:
+        #    print(f"Error: Missing key {e} in one of the dictionaries.")
+        df1=pd.DataFrame(df1)
+        df2=pd.DataFrame(df2)
+        df3=pd.DataFrame(df3)
         # determine available sensor columns from real data        
         #sensor_groups = self.identify_sensor_columns()
         
         # if we have real data columns, use them as a template        
         if comparison_df is not None:
-            mean_val = comparison_df['value_hrf'].mean()
-            std_val = comparison_df['value_hrf'].std()
+            if df1 is not None:
+                mean_val1 = df1['value'].mean()
+                std_val1 = df1['value'].std()
+            if df2 is not None:
+                mean_val2 = df2['value'].mean()
+                std_val2 = df2['value'].std()
+            if df3 is not None:
+                mean_val3 = df3['value'].mean()
+                std_val3 = df3['value'].std()
             # get column names from the first few sensor groups            
             #template_columns = []
             #for group in list(sensor_groups.values())[:3]:
             #    template_columns.extend(group[:3])  # take up to 3 columns from each group            
             # create normal patterns            
             for i in range(num_samples - 1):
-                sample = {
-                    "node_id": "synthetic_host",
-                    "subsystem": "ms",
-                    "sensor":"tsys01",
-                    "parameter":"temp",
-                    "timestamp": f"2023-01-01T{12+i:02d}:00:00"
-                }
-                
-                # add values based on real column ranges                
-             #   for col in template_columns:
-             #       if col in self.df.columns:
-                # calculate mean and std for the column                        
-
-                        
+                #sample = {
+                #    "node_id": "synthetic_host",
+                #    "subsystem": "metsemse",
+                #    "sensor":"tsys01",
+                #    "parameter":"temperature",
+                #    "timestamp": f"2023-01-01T{12+i:02d}:00:00"
+                #}
                 # generate value using distribution from real data                        
-                if not pd.isna(mean_val) and not pd.isna(std_val) and std_val > 0:
-                    sample['value_hrf'] = mean_val + np.random.normal(0, std_val * 0.5)
-                else:
-                    sample['value_hrf'] = np.random.normal(0, 1)
+                #if not pd.isna(mean_val) and not pd.isna(std_val) and std_val > 0:
+                #    sample['value'] = mean_val + np.random.normal(0, std_val * 0.5)
+                #else:
+                #    sample['value'] = np.random.normal(0, 1)
                 
-                data.append(sample)
+                #data.append(sample)
+                switcher=i%3
+                match switcher:
+                    case 0:
+                        if not pd.isna(mean_val1) and not pd.isna(std_val1) and std_val1 > 0:
+                            val = mean_val1 + np.random.normal(0, std_val1 * 0.5)
+                        else:
+                            val = np.random.uniform(-5, 5)
+                        data.append({
+                            "node_id": "synthetic_host",
+                            "subsystem": "metsense",
+                            "sensor":"tsys01",
+                            "parameter":"temperature",
+                            "timestamp": f"2023-01-01T{12+i:02d}:00:00",
+                            "value": val
+                        })
+                    case 1:
+                        if not pd.isna(mean_val3) and not pd.isna(std_val3) and std_val1 > 0:
+                            val = mean_val3 + np.random.normal(0, std_val3 * 0.5)
+                        else:
+                            val = np.random.uniform(1000, 3000)
+                        data.append({
+                            "node_id": "synthetic_host",
+                            "subsystem": "chemsense",
+                            "sensor":"lps25h",
+                            "parameter":"pressure",
+                            "timestamp": f"2023-01-01T{12+i:02d}:00:00",
+                            "value": val
+                        })
+                    case 2:
+                        if not pd.isna(mean_val2) and not pd.isna(std_val2) and std_val2 > 0:
+                            val = mean_val2 + np.random.normal(0, std_val2 * 0.5)
+                        else:
+                            val = np.random.uniform(40, 50)
+                        data.append({
+                            "node_id": "synthetic_host",
+                            "subsystem": "metsense",
+                            "sensor":"htu21d",
+                            "parameter":"humidity",
+                            "timestamp": f"2023-01-01T{12+i:02d}:00:00",
+                            "value": val
+                        })                    
+                
             
             # create an anomalous pattern with significant deviations            
             anomaly = {
                 "node_id": "synthetic_host",
-                "subsystem": "ms",
+                "subsystem": "metsense",
                 "sensor":"tsys01",
-                "parameter":"temp",
+                "parameter":"temperature",
                 "timestamp": "2023-01-01T22:30:00"
-            }
-            
-            #for col in template_columns:
-            #    if col in self.df.columns:
-                    # calculate mean and std for the column                    
-                    #mean_val = self.df[col].mean()
-                    #std_val = self.df[col].std()
-                    
+            }  
             # generate anomalous value - much higher deviation                    
-            if not pd.isna(mean_val) and not pd.isna(std_val) and std_val > 0:
-                # 50% chance of higher or lower anomaly                        
-                if np.random.random() > 0.5:
-                    anomaly['value_hrf'] = mean_val + np.random.normal(0, std_val * 3)
-                else:
-                    anomaly['value_hrf'] = mean_val - np.random.normal(0, std_val * 3)
-            else:
-                anomaly['value_hrf'] = np.random.normal(0, 20)
-            
-            data.append(anomaly)
-            
+            #if not pd.isna(mean_val) and not pd.isna(std_val) and std_val > 0:
+            #    # 50% chance of higher or lower anomaly                        
+            #    if np.random.random() > 0.5:
+            #        anomaly['value'] = mean_val + np.random.normal(0, std_val * 3)
+            #    else:
+            #        anomaly['value'] = mean_val - np.random.normal(0, std_val * 3)
+            #else:
+            #    anomaly['value'] = np.random.normal(0, 20)
+            #data.append(anomaly)
+            picker=np.random.uniform(0,2)
+            match picker:
+                case 0:            
+                    if not pd.isna(mean_val1) and not pd.isna(std_val1) and std_val1 > 0:
+                    # 50% chance of higher or lower anomaly                        
+                        if np.random.random() > 0.5:
+                            val = mean_val1 + np.random.normal(0, std_val1 * 3)
+                        else:
+                            val = mean_val1 - np.random.normal(0, std_val1 * 3)
+                    else:
+                        val = np.random.uniform(40, 50)
+                    data.append({
+                        "node_id": "synthetic_host",
+                        "subsystem": "metsense",
+                        "sensor":"tsys01",
+                        "parameter":"temperature",
+                        "timestamp": "2023-01-01T22:30:00",
+                        "value": val
+                    })
+                case 1:
+                    if not pd.isna(mean_val3) and not pd.isna(std_val3) and std_val3 > 0:
+                    # 50% chance of higher or lower anomaly                        
+                        if np.random.random() > 0.5:
+                            val = mean_val3 + np.random.normal(0, std_val3 * 3)
+                        else:
+                            val = mean_val3 - np.random.normal(0, std_val3 * 3)
+                    else:
+                        val = np.random.uniform(0, 900)
+                    data.append({
+                        "node_id": "synthetic_host",
+                        "subsystem": "chemsense",
+                        "sensor":"lps25h",
+                        "parameter":"pressure",
+                        "timestamp": "2023-01-01T22:30:00",
+                        "value": val
+                    })
+                case 2:
+                    if not pd.isna(mean_val2) and not pd.isna(std_val2) and std_val2 > 0:
+                    # 50% chance of higher or lower anomaly                        
+                        if np.random.random() > 0.5:
+                            val = mean_val2 + np.random.normal(0, std_val2 * 3)
+                        else:
+                            val = mean_val2 - np.random.normal(0, std_val2 * 3)
+                    else:
+                        val = np.random.uniform(60, 100)
+                    data.append({
+                        "node_id": "synthetic_host",
+                        "subsystem": "metsense",
+                        "sensor":"htu21d",
+                        "parameter":"humidity",
+                        "timestamp": "2023-01-01T22:30:00",
+                        "value": val
+                    })
         else:
             # fall back to basic synthetic data if no real data is available            
             # create normal temp patterns           
             for i in range(num_samples - 1):
-                data.append({
-                    "node_id": "synthetic_host",
-                    "subsystem": "ms",
-                    "sensor":"tsys01",
-                    "parameter":"temp",
-                    "timestamp": f"2023-01-01T{12+i:02d}:00:00",
-                    "value_hrf": 0 + np.random.normal(0, 2)
-                })
+                switcher=i%3
+                match switcher:
+                    case 0:
+                        data.append({
+                            "node_id": "synthetic_host",
+                            "subsystem": "metsense",
+                            "sensor":"tsys01",
+                            "parameter":"temperature",
+                            "timestamp": f"2023-01-01T{12+i:02d}:00:00",
+                            "value": 0 + np.random.uniform(0, 2)
+                        })
+                    case 1:
+                        data.append({
+                            "node_id": "synthetic_host",
+                            "subsystem": "chemsense",
+                            "sensor":"lps25h",
+                            "parameter":"pressure",
+                            "timestamp": f"2023-01-01T{12+i:02d}:00:00",
+                            "value": 0 + np.random.uniform(1000, 3000)
+                        })
+                    case 2:
+                        data.append({
+                            "node_id": "synthetic_host",
+                            "subsystem": "metsense",
+                            "sensor":"htu21d",
+                            "parameter":"humidity",
+                            "timestamp": f"2023-01-01T{12+i:02d}:00:00",
+                            "value": 0 + np.random.uniform(40, 50)
+                        })
             
-            # create an anomalous walking pattern            
-            data.append({
-                "node_id": "synthetic_host",
-                "subsystem": "ms",
-                "sensor":"tsys01",
-                "parameter":"temp",
-                "timestamp": "2023-01-01T22:30:00",
-                "value_hrf": 0 + np.random.normal(0, 20)
-            })
+            # create an anomalous pattern
+            picker=np.random.uniform(0,2)
+            match picker:
+                case 0:            
+                    data.append({
+                        "node_id": "synthetic_host",
+                        "subsystem": "metsense",
+                        "sensor":"tsys01",
+                        "parameter":"temperature",
+                        "timestamp": "2023-01-01T22:30:00",
+                        "value": 0 + np.random.uniform(10, 30)
+                    })
+                case 1:
+                    data.append({
+                        "node_id": "synthetic_host",
+                        "subsystem": "chemsense",
+                        "sensor":"lps25h",
+                        "parameter":"pressure",
+                        "timestamp": "2023-01-01T22:30:00",
+                        "value": 0 + np.random.uniform(0, 900)
+                    })
+                case 2:
+                    data.append({
+                        "node_id": "synthetic_host",
+                        "subsystem": "metsense",
+                        "sensor":"htu21d",
+                        "parameter":"humidity",
+                        "timestamp": "2023-01-01T22:30:00",
+                        "value": 0 + np.random.uniform(60, 100)
+                    })
         
         return data
 

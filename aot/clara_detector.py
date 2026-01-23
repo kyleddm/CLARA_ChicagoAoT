@@ -302,38 +302,43 @@ class CLARA:
             is_anomaly: whether pattern is anomalous based on semantic matching
             metrics: dictionary with semantic matching metrics
         """
-        if not retrieved_patterns:
-            return True, {"anomaly_reason": "No similar patterns found"}
         
-        # compute minimum distance to normal patterns       
-        normal_patterns = [p for p in retrieved_patterns if not p.get('is_anomaly', False)]
         min_normal_distance = float('inf')
-        closest_normal = None
-        
-        if normal_patterns:
-            min_normal_distance = min(p['distance'] for p in normal_patterns)
-            closest_normal = min(normal_patterns, key=lambda p: p['distance'])
-        
-        # compute minimum distance to anomalous patterns        
-        anomaly_patterns = [p for p in retrieved_patterns if p.get('is_anomaly', False)]
+        closest_normal = None        
         min_anomaly_distance = float('inf')
         closest_anomaly = None
-        
-        if anomaly_patterns:
-            min_anomaly_distance = min(p['distance'] for p in anomaly_patterns)
-            closest_anomaly = min(anomaly_patterns, key=lambda p: p['distance'])
-        
-        # determine if this is an anomaly based on distances        
         is_anomaly = False
-        anomaly_reason = ""
-        
-        if min_normal_distance > threshold:
-            is_anomaly = True
-            anomaly_reason = f"Distance to closest normal pattern ({min_normal_distance:.4f}) exceeds threshold ({threshold:.4f})"
-        elif anomaly_patterns and min_anomaly_distance < min_normal_distance:
-            is_anomaly = True
-            anomaly_reason = f"More similar to known anomaly ({min_anomaly_distance:.4f}) than to normal pattern ({min_normal_distance:.4f})"
-        
+        anomaly_reason = ""        
+        if not retrieved_patterns:
+            is_anomaly= True
+            anomaly_reason= "No similar patterns found"
+        else:
+            # compute minimum distance to normal patterns       
+            normal_patterns = [p for p in retrieved_patterns if not p.get('is_anomaly', False)]
+
+            
+            if normal_patterns:
+                min_normal_distance = min(p['distance'] for p in normal_patterns)
+                closest_normal = min(normal_patterns, key=lambda p: p['distance'])
+            
+            # compute minimum distance to anomalous patterns        
+            anomaly_patterns = [p for p in retrieved_patterns if p.get('is_anomaly', False)]
+
+            
+            if anomaly_patterns:
+                min_anomaly_distance = min(p['distance'] for p in anomaly_patterns)
+                closest_anomaly = min(anomaly_patterns, key=lambda p: p['distance'])
+            
+            # determine if this is an anomaly based on distances        
+
+            
+            if min_normal_distance > threshold:
+                is_anomaly = True
+                anomaly_reason = f"Distance to closest normal pattern ({min_normal_distance:.4f}) exceeds threshold ({threshold:.4f})"
+            elif anomaly_patterns and min_anomaly_distance < min_normal_distance:
+                is_anomaly = True
+                anomaly_reason = f"More similar to known anomaly ({min_anomaly_distance:.4f}) than to normal pattern ({min_normal_distance:.4f})"
+            
         # prepare metrics       
         metrics = {
             "min_normal_distance": min_normal_distance if min_normal_distance != float('inf') else None,
@@ -427,10 +432,15 @@ class CLARA:
             combined_anomaly = True
         
         # combine confidences        
-        # use explanation confidence as base, adjusted by other methods       
+        # use explanation confidence as base, adjusted by other methods
+        print(f'METRICS!!: {metrics}\n')       
         combined_confidence = exp_confidence
         if semantic_anomaly:
-            semantic_confidence = 1.0 - min(1.0, metrics["min_normal_distance"] / (2 * self.semantic_threshold))
+            if metrics["min_normal_distance"] is not None:
+                res=min(1.0, metrics["min_normal_distance"] / (2 * self.semantic_threshold))
+            else:
+                res=1.0
+            semantic_confidence = 1.0 - res
             combined_confidence = (combined_confidence + semantic_confidence) / 2
         
         # enhance explanation        

@@ -118,7 +118,7 @@ class ExplanationDrivenDetector:
             
             # add key sensor readings            
             for key, value in closest_anomaly.items():
-                if key in ['value_hrf'] and isinstance(value, (int, float)):
+                if key in ['value'] and isinstance(value, (int, float)):
                     text += f"- {key}: {value:.4f}\n"
             
             # add key sensor timestamps            

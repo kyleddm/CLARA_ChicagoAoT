@@ -158,9 +158,9 @@ def extractSensorType(pattern: Dict[str, Any]):
         #print(f'pattern key:{key}')
         if key.lower() == 'parameter':
             if pattern[key] in sensor_groups.keys():
-                sensor_groups[pattern[key]].append((pattern[key],pattern['value_hrf']))
+                sensor_groups[pattern[key]].append((pattern[key],pattern['value']))
             else:
-                sensor_groups[pattern[key]]=[(pattern[key],pattern['value_hrf'])]
+                sensor_groups[pattern[key]]=[(pattern[key],pattern['value'])]
         if key.lower() =='timestamp':
             #Note: need a concise way to prune the timestamp at time of pattern storage and sample check.
             if pattern[key] in sensor_groups.keys():

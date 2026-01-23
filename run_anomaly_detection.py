@@ -102,7 +102,7 @@ def load_training_data(detector, args):
             labels = []
             for sample in all_samples:
                 #extract numerical features.  Time (without the year) is used here since it's very relevant
-                feature_vector=[sample['timestamp'],sample['value_hrf']]
+                feature_vector=[sample['timestamp'],sample['value']]
                 #feature_vector=[pruneTime(sample['timestamp']),sample['value_hrf']]
                 if feature_vector:
                     features.append(feature_vector)
@@ -247,7 +247,7 @@ def run_detection_demo(detector, feedback_loop, args):
     
     for i, sample in enumerate(test_data):
         print(f"\nSample {i+1}/{len(test_data)}:")
-        print(f"Timestamp: {sample.get('timestamp', 'unknown')}, Node: {sample.get('node_id', 'unknown')}, Subsystem: {sample.get('subsystem', 'unknown')}, Sensor: {sample.get('sensor', 'unknown')}, Parameter: {sample.get('parameter', 'unknown')}, Value:{sample.get('value_hrf', 'unknown')}")
+        print(f"Timestamp: {sample.get('timestamp', 'unknown')}, Node: {sample.get('node_id', 'unknown')}, Subsystem: {sample.get('subsystem', 'unknown')}, Sensor: {sample.get('sensor', 'unknown')}, Parameter: {sample.get('parameter', 'unknown')}, Value:{sample.get('value', 'unknown')}")
         
         # run detection        
         try:
