@@ -17,6 +17,7 @@ from aot.contextual_deviation_analyzer import ContextualDeviationAnalyzer
 from aot.explanation_driven_detector import ExplanationDrivenDetector
 from utilities import pruneTime
 from utilities import parse_json_args
+from datetime import datetime
 
 # constants
 DEFAULT_CSV_PATH = "/mnt/e/input/chicago_aot/big2018-03-30_00.36.46.csv"#"/mnt/e/input/clara/no_watch_data_imputed_replaced_cleaned.csv"#"/home/ai-lab2/GAIN-Pytorch-master/data/no_watch_data_imputed_replaced_cleaned.csv"
@@ -102,16 +103,18 @@ def load_training_data(detector, args):
             labels = []
             for sample in all_samples:
                 #extract numerical features.  Time (without the year) is used here since it's very relevant
-                feature_vector=[sample['timestamp'],sample['value']]
+                timStp=datetime.strptime(sample['timestamp'],"%Y/%m/%d %H:%M:%S").timestamp()
+                feature_vector=[timStp,sample['value']]
                 #feature_vector=[pruneTime(sample['timestamp']),sample['value_hrf']]
                 if feature_vector:
+                    #print(f'SAMPLE!!!{sample}')
                     features.append(feature_vector)
                     #we're going to use subsystem, sensor, and parameter labels as relevant data for the feature, but these need to be made into embeddings
-                    subsys=hash(sample['subsystem'] % 100)
-                    sen=hash(sample['sensor'] % 100)
+                    subsys=hash(sample['subsystem']) % 100
+                    sen=hash(sample['sensor']) % 100
                     #we combine the subsystem (make) and sensor (model) together because what matters is the similarity between srnsors of similar parameters; we don't want CLARA adding the same weight to two temp sensors of different models and two completely different sensors of similar make
                     #sen=hash(sample['sensor'] % 100)
-                    param=hash(sample['parameter'] % 100)
+                    param=hash(sample['parameter']) % 100
                     labels.append([subsys,sen,param])
                     
                     
@@ -145,8 +148,8 @@ def load_training_data(detector, args):
             model, embeddings = generate_sensor_embeddings_with_contrastive_learning(
                 feature_vectors=features_array,
                 labels=labels_array,
-                embedding_dim=768,
-                epochs=10  # fewer epochs for demonstration           
+                embedding_dim=args.contrastive_embedding_dim,#768,
+                epochs=args.contrastive_training_epochs  #10 fewer epochs for demonstration           
                 )
             
             # use the trained model            
@@ -155,6 +158,7 @@ def load_training_data(detector, args):
         except Exception as e:
             print(f"Error training embedding model: {e}")
             print("Using default embedding approach instead.")
+            traceback.print_exc()
     
     # add to vector store    
     patterns_added = 0
@@ -448,6 +452,10 @@ def parse_arguments():
     
     parser.add_argument("--data-headers", type=str, default='{"pres":"pressure", "temp": "temperature", "hum":"humidity", "cs":"chemsense","ls":"lightsense","ms":"metsense"}')
     
+    parser.add_argument("--contrastive-training-epochs", type=int, default=10)
+    
+    parser.add_argument("--contrastive-embedding-dim", type=int, default=768)
+    
     args = parser.parse_args()
     return args
 
@@ -474,16 +482,18 @@ def main():
     if args.reset_feedback:
         print("Resetting feedback log...")
         feedback_loop.clear_feedback_log()
-    
+    print(f'loading training data\n')
     # load training data    
     load_training_data(detector, args)
-    
+    print(f'running detection demo:\n')
     # run demonstration    
     anomalous_sample = run_detection_demo(detector, feedback_loop, args)
-    #print(f'TEST~~~\n{anomalous_sample}~~~~~~~~TEST\n')
     
-    # detailed analysis of a sample    
-    analyze_sample_in_detail(detector, anomalous_sample, args)
+    print(f'ANOMALOUS SAMPLE!!:\n{anomalous_sample}\n')
+    
+    # detailed analysis of a sample
+    #print(f'Analyzing sample data in detail:\n')    
+    #analyze_sample_in_detail(detector, anomalous_sample, args)
     
     print("\nDemonstration complete!")
     return 0

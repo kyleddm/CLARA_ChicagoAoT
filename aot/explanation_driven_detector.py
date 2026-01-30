@@ -253,8 +253,8 @@ class ExplanationDrivenDetector:
             confidence: confidence score (0 to 1)
             explanation: explanation of the analysis
         """
-        print(f'PATTERN!!: {pattern}\n')
-        print(f'RETREIVED CONTEXT!!: {retrieved_context}\n')
+        #print(f'PATTERN!!: {pattern}\n')
+        #print(f'RETREIVED CONTEXT!!: {retrieved_context}\n')
         # convert pattern to text        
         pattern_text = self.pattern_to_text(pattern)
         
@@ -284,9 +284,11 @@ class ExplanationDrivenDetector:
             if notable_deviations:
                 print(f'notable deviations: {notable_deviations}')
                 if isinstance(notable_deviations, list):
-                    explanation += "\n\nNotable deviations:\n- " + "\n- ".join(notable_deviations)
+                    explanation += "\n\nNotable deviations:\n- " + "\n- "
+                    for deviation in notable_deviations:
+                        explanation += f'{deviation}\n'#.join(notable_deviations)
                 else:
-                    explanation += f"\n\nNotable deviations: {notable_deviations}"
+                    explanation += f"\n\nNotable deviations: {notable_deviations} \n"
             
             # include recommended actions if available            
             recommended_actions = result.get('recommended_actions', [])

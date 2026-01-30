@@ -5,6 +5,7 @@ from .utilities import pruneTime
 from .utilities import parse_json_args
 from .utilities import extract_metadata
 from .utilities import extractSensorType
+from .utilities import closest_divisor
 from .utilities import DEFAULT_CONFIG
 from .utilities import timestart_str
 from .utilities import config

@@ -234,19 +234,19 @@ class CLARA:
             matching= [s for s in sensor_data.keys() if 'id' in s]            
             
             host_id = sensor_data.get(matching[0])#sensor_data.get("hostID")
-            print(f'GOT ID!!: {matching[0]}:{host_id}\n')
+            #print(f'GOT ID!!: {matching[0]}:{host_id}\n')
             distances, metadata = self.vector_store.search(
                 query_embedding, 
                 k=k, 
                 filter_func=lambda meta: meta.get(matching[0])==host_id #meta.get('hostID') == host_id
             )
-            print(f'RETREIVED DISTANCES!!: {distances}\n')
-            print(f'RETREIVED METADATA!!: {metadata}\n')
+            #print(f'RETREIVED DISTANCES!!: {distances}\n')
+            #print(f'RETREIVED METADATA!!: {metadata}\n')
             
             print('Testing what comes out of the FAISS search:\n')
             test_dist, test_meta=self.vector_store.search(query_embedding, k)
-            print(f'RETREIVED TEST DISTANCES!!: {test_dist}\n')
-            print(f'RETREIVED TEST METADATA!!: {test_meta}\n')
+            #print(f'RETREIVED TEST DISTANCES!!: {test_dist}\n')
+            #print(f'RETREIVED TEST METADATA!!: {test_meta}\n')
             
             # if not enough results, do a general search            
             if len([d for d in distances if d != float('inf')]) < k // 2:

@@ -5,6 +5,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from typing import Dict, List, Tuple, Union, Optional, Any
 import random
+from utilities import closest_divisor
 
 class SensorDataset(Dataset):
 
@@ -113,6 +114,8 @@ def train_embedding_model(features: np.ndarray,
     
     # create dataset and data loader
     dataset = SensorDataset(features, labels)
+    print(f'SATASET SUZE!!: {len(dataset)}\n')
+    batch_size=closest_divisor(len(dataset),batch_size)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     
     # initialize model    

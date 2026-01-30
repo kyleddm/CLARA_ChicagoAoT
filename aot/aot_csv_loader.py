@@ -27,20 +27,20 @@ class AotCSVLoader:
                 print(f"Loading Sensor data from {csv_file_path}...")
                 self.df = pd.read_csv(csv_file_path)
                 print(f"Successfully loaded data with {len(self.df)} rows and {len(self.df.columns)} columns\n")
-                print(f"columns in data: {self.df.columns}\n")
+                #print(f"columns in data: {self.df.columns}\n")
             except Exception as e:
                 print(f"Error loading CSV file: {e}")
             try:
                 self.df.rename(columns={'value_hrf':'value'},inplace=True)
-                print(f'generalized value column: {self.df.columns}\n')
+                #print(f'generalized value column: {self.df.columns}\n')
                 if 'Unnamed: 0' in list(self.df.columns):
                     self.df=self.df.drop('Unnamed: 0',axis=1)#csv files saved with the index column
-                    print(f'dumped old index column column: {self.df.columns}\n')
+                    #print(f'Columns in data: {self.df.columns}\n')
                 self.df['subsystem'] = self.df['subsystem'].apply(lambda x: 'chemsense' if x == 'cs' else ('lightsense' if x=='ls' else ('metsense' if x=='ms' else('plantower' if x=='pt' else (x)))))
                 self.df['parameter'] = self.df['parameter'].apply(lambda x: 'humidity' if x == 'hum' else ('temperature' if x=='temp' else ('pressure' if x=='pres' else(x))))
-                print(f'expanded subsystem names: {self.df.columns}\n')
+                #print(f'expanded subsystem names: {self.df.columns}\n')
                 
-                print(f"New columns in data: {self.df.columns}\n")
+                print(f"Columns in data: {list(self.df.columns)}\n")
             except Exception as e:
                 print(f'Error parsing dataframe: {e}')
         return
@@ -250,7 +250,7 @@ class AotCSVLoader:
         data = []
         
         df1=self.filter_data(node=None, subsystem='metsense', sensor='tsys01', parameter='temperature', max_samples=None)#since data is unique by ROW, we need to sample from rows to get these values.  This is a test case only! 2025NOV21
-        print(f'DF1!!!:{df1}\n')
+        #print(f'DF1!!!:{df1}\n')
         df2=self.filter_data(node=None, subsystem='metsense', sensor='htu21d', parameter='humidity', max_samples=None)
         df3=self.filter_data(node=None, subsystem='chemsense', sensor='lps25h', parameter='pressure', max_samples=None)
         comparison_df = df1 + df2 + df3 #pd.concat([df1, df2, df3], ignore_index=True)
