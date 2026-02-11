@@ -140,10 +140,17 @@ def load_training_data(detector, args):
                     padded_features.append(f)
             
             features_array = np.array(padded_features, dtype=np.float32)
-            #Note that the labels at this point are in the wrong direction;  each sample produces the list of labels and that is appended to the labels array.  we need to transpose it!
-            transposed = [list(row) for row in zip(*labels)]
-            labels_array = np.array(transposed, dtype=np.int64)
+            #2026FEB03 KDM If the labels are single-dimension, the numpy array is the wrong shape, so transposition is needed, but if you transpose any other length label array, it screws up the dataloader because the shape is wrong.  need to catch that here.
+            if len(np.array(labels).shape)==1:
+                #Note that the labels at this point are in the wrong direction;  each sample produces the list of labels and that is appended to the labels array.  we need to transpose it!
+                transposed = [list(row) for row in zip(*labels)]
+                labels_array = np.array(transposed, dtype=np.int64)
+            else:
+                labels_array = np.array(labels, dtype=np.int64)
             
+            #print(f'features array shape!!:{features_array.shape}\n')
+            #print(f'labels array shape!!:{labels_array.shape}\n')
+            #sys.exit('checking label size')
             # train embedding model            
             model, embeddings = generate_sensor_embeddings_with_contrastive_learning(
                 feature_vectors=features_array,
@@ -154,7 +161,7 @@ def load_training_data(detector, args):
             
             # use the trained model            
             detector.embedding_model = model
-            print("Successfully trained embedding model!")
+            print(f'Successfully trained embedding model!  embedding list shape shape {embeddings.shape}\n')
         except Exception as e:
             print(f"Error training embedding model: {e}")
             print("Using default embedding approach instead.")
@@ -426,8 +433,8 @@ def parse_arguments():
                        help="Threshold for semantic pattern matching (default: 0.7)")
     parser.add_argument("--coherence", type=float, default=0.6,
                        help="Threshold for explanation coherence (default: 0.6)")
-    parser.add_argument("--embedding-dim", type=int, default=64,
-                       help="Dimension of embedding vectors (default: 64)")
+    parser.add_argument("--embedding-dim", type=int, default=768,
+                       help="Dimension of embedding vectors (default: 768)")
     
     # behavior options    
     parser.add_argument("--skip-training", action="store_true",

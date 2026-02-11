@@ -49,6 +49,9 @@ def pruneTime(inDate:str, timezone_str='America/Chicago'):
 #    return yearSecs
     return
 
+def returnUnixTime(date:str, syntax:str="%Y/%m/%d %H:%M:%S"):
+    return datetime.strptime(date, syntax).timestamp()
+
 def parse_json_args(args):
     args_dict=vars(args)#convert the arguments from the parser into a dictionary to compare values
     args2=None #the new arguments to be returned will live here
@@ -91,7 +94,7 @@ def extract_metadata(pattern: Dict[str, Any],args):
     for key in timestamp_keys:
         ts=pattern.get(key, 'unknown')
         if ts!='unknown':
-            timestamps.append(ts)
+            timestamps.append(returnUnixTime(ts))
     for key in label_keys:
         key2=pattern.get(key, 'unknown')
         #print(f'key: {key}, key2: {key2}, data headers keys: {data_headers.keys()}')
@@ -143,6 +146,36 @@ def extract_metadata(pattern: Dict[str, Any],args):
     
     text = f"Host {",".join(map(str,ids))} with {",".join(map(str,labels))}, measuring units {units} at time {",".join(map(str,timestamps))} \n\n"
     return metadata, text, keys
+
+def provideGuidance(keys:list[str]):
+        
+        guidance= 'You are seeing sensor data from Chicago, IL USA. Keep this in mind when determining if something is anomalous or not.\n'
+        guidance += 'Chicago is not typically an extreme weather location, but can be affected by lake effects, polar vortices in winter, and humid conditions in summer.'
+        if 'timestamp' in keys:
+            guidance += 'The sensor data is heavily correllated with the date.  This date is provided as a feature and is in the form of UNIX Time.\n'
+        if 'temperature' in keys:
+            guidance += '\nFor temperature data:\n'
+            guidance += '-temperature ranges on earth are generally normal between 0C in winter to 30C in summer generally.\n'
+        if 'pressure' in keys:
+            guidance += '\nFor Pressure Data:\n'
+            guidance += '-pressure ranges variy with weather and altitude, but a low pressure is around 1000 hPa at sea level.\n'
+            guidance += '-High pressure systems might show numbers at or above 3000 hPa at sea level.\n'
+        if 'humidity' in keys:
+            guidance += '\nFor Humidity Data\n'
+            guidance += '-humidity can only be within the range of 0 to 100 \% relative humitity.\n'
+            guidance += '-humidity is usually lower during colder periods and higher during warmer periods, but closeness to a body of water or a damp environment like a swamp can effect this.\n'
+            
+        ## add sensor-specific guidance        
+        #if 'acc_x' in sensor_data and 'acc_y' in sensor_data and 'acc_z' in sensor_data:
+        #    guidance += "\nFor accelerometer data:\n"
+        #    guidance += "- Normal walking typically shows y-axis values around 9.8 (gravity)\n"
+        #    guidance += "- Sudden changes in x or z axis may indicate unusual movements\n"
+        
+        #if 'gyro_x' in sensor_data and 'gyro_y' in sensor_data and 'gyro_z' in sensor_data:
+        #    guidance += "\nFor gyroscope data:\n"
+        #    guidance += "- High values indicate rapid rotation\n"
+        #    guidance += "- Normal activities have consistent patterns in gyroscope readings\n"
+        return guidance
 
 def extractSensorType(pattern: Dict[str, Any]):
     #metadata, text, meta_keys=extract_metadata(pattern, data_headers)

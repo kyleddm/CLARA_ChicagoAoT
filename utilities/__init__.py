@@ -9,6 +9,8 @@ from .utilities import closest_divisor
 from .utilities import DEFAULT_CONFIG
 from .utilities import timestart_str
 from .utilities import config
+from .utilities import returnUnixTime
+from .utilities import provideGuidance
 #from . import utilities
 __version__ = '1.0.0'
 author= 'DeMedeiros, Kyle D'

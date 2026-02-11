@@ -105,11 +105,17 @@ class SensorDataAugmenter:
         return text
     
     def generate_guidance(self, sensor_data: Dict[str, Any], 
-                         retrieved_context: List[Dict[str, Any]]) -> str:
-
+                         retrieved_context: List[Dict[str, Any]]) -> str:#needs to be edited.  Activity and user_id are not generalized
+        metadata,text2,meta_keys=util.extract_metadata(sensor_data, self.args)
+        activity=[]        
+        for key, value in sorted(sensor_data.items()):
+            if key in meta_keys['ids']:
+                user_id=sensor_data[key]
+            if key in meta_keys['labels']:
+                activity.append(sensor_data[key])
         # determine user activity and context       
-        activity = sensor_data.get('activity', 'unknown activity')
-        user_id = sensor_data.get('user_id', 'unknown user')
+        #activity = sensor_data.get('activity', 'unknown activity')
+        #user_id = sensor_data.get('user_id', 'unknown user')
         
         # find anomalies in retrieved context        
         anomalies = [c for c in retrieved_context if c.get('is_anomaly', False)]
@@ -117,7 +123,7 @@ class SensorDataAugmenter:
         guidance = "ANALYSIS GUIDANCE:\n\n"
         
         # add activity-specific guidance        
-        guidance += f"When analyzing this data, consider that the user is performing '{activity}'.\n"
+        guidance += f"When analyzing this data, consider that the node {user_id} is definied by the following labels: '{activity}'.\n"
         
         # add context-based guidance        
         if anomalies:
@@ -127,16 +133,7 @@ class SensorDataAugmenter:
             guidance += "No similar anomalies found in the database.\n"
             guidance += "Focus on detecting deviations from the normal patterns.\n"
         
-        # add sensor-specific guidance        
-        if 'acc_x' in sensor_data and 'acc_y' in sensor_data and 'acc_z' in sensor_data:
-            guidance += "\nFor accelerometer data:\n"
-            guidance += "- Normal walking typically shows y-axis values around 9.8 (gravity)\n"
-            guidance += "- Sudden changes in x or z axis may indicate unusual movements\n"
-        
-        if 'gyro_x' in sensor_data and 'gyro_y' in sensor_data and 'gyro_z' in sensor_data:
-            guidance += "\nFor gyroscope data:\n"
-            guidance += "- High values indicate rapid rotation\n"
-            guidance += "- Normal activities have consistent patterns in gyroscope readings\n"
+        guidance+=util.provideGuidance(meta_keys)
         
         return guidance
     

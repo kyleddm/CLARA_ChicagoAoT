@@ -5,7 +5,8 @@ import time
 from typing import Dict, List, Tuple, Any, Optional
 import torch
 import utilities as util
-
+import sys
+import traceback
 from clara.faiss_vector_store import FAISSVectorStore
 from clara.ollama_llm import OllamaLLM
 from .contrastive_embedding_model import generate_sensor_embeddings_with_contrastive_learning
@@ -50,11 +51,16 @@ class CLARA:
         features = []
         #print(f'sensor data: {sensor_data}')
         #  sensor readings in dictionary data format. tried multi-dimensional list, but it was taking too long.
-        metadata,text2,meta_keys=util.extract_metadata(sensor_data, self.args)         
+        metadata,text2,meta_keys=util.extract_metadata(sensor_data, self.args)
+        #print(f'meta keys!!:{meta_keys}, sensor_data:{sensor_data}\n')         
         for key, value in sorted(sensor_data.items()):
             if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(value, (int, float)):
             #if key not in ['user_id', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
                 features.append(float(value))
+            if key in meta_keys['timestamps'] and not isinstance(value, (int,float)):
+                unixVal=util.returnUnixTime(value)
+                features.append(unixVal)
+                #print(f'converted time {value} to unixtime {unixVal}')
         if not features:
             features = [0.0] * 10
         return np.array(features, dtype=np.float32)
@@ -64,16 +70,17 @@ class CLARA:
         
         features = self._sensor_to_features(sensor_data)
 
-        #print(f"Feature length: {len(features)}")
+        #print(f"Feature shape: {features.shape}")
         # if we have a trained embedding model, use it       
         if self.embedding_model:
             try:
                 with torch.no_grad():
                     features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
+                    #print(f'features_tensor!!:{features_tensor}\n')
                     embedding = self.embedding_model(features_tensor).cpu().numpy()
                 
                 # check embedding shape                
-                print(f"Embedding from model shape: {embedding.shape}")
+                #print(f"Embedding from model shape: {embedding.shape}")
                 
                 
                 if embedding.shape[1] != self.embedding_dim:
@@ -89,6 +96,8 @@ class CLARA:
             except Exception as e:
                 print(f"Error using embedding model: {e}")
                 print("Falling back to simple embedding")
+                traceback.print_exc()
+                sys.exit('embedding error')
         
         embedding = np.zeros((1, self.embedding_dim), dtype=np.float32)
         
@@ -154,11 +163,12 @@ class CLARA:
             if key in meta_keys['values'] and isinstance(value, (int, float)):
                 metadata[key] = value
             if key in meta_keys['timestamps']:
-                timVal=str(value)
+                timVal=util.returnUnixTime(value)#str(value)
                 #timVal=util.pruneTime(str(value))
                 metadata[key] = timVal
         
-        # add to vector store       
+        # add to vector store 
+        #print(f'embedding shape!!:{embedding.shape}\n')      
         pattern_id = self.vector_store.add_embedding(embedding, metadata)
         
         return pattern_id

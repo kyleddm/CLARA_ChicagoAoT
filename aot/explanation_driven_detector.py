@@ -191,7 +191,7 @@ class ExplanationDrivenDetector:
         #['node_id', 'subsystem','sensor','parameter']
         for key in pattern:
             if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(pattern[key], (int, float)):
-                #print(f'EXPLANATION!!: {explanation}')
+                print(f'EXPLANATION!!: {explanation}')
                 if isinstance(explanation,dict):
                     if key in explanation['explanation'].lower():
                         sensor_refs += 1
