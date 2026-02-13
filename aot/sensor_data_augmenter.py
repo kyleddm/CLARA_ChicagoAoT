@@ -133,7 +133,7 @@ class SensorDataAugmenter:
             guidance += "No similar anomalies found in the database.\n"
             guidance += "Focus on detecting deviations from the normal patterns.\n"
         
-        guidance+=util.provideGuidance(meta_keys)
+        guidance+=util.provideGuidance(metadata)
         
         return guidance
     

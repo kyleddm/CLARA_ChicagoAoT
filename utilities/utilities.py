@@ -16,9 +16,8 @@ def load_config(config_file:str=DEFAULT_CONFIG):
         conf=json.load(cf)
     return conf
 
-
 config=load_config(DEFAULT_CONFIG)
-
+sen_meta=pd.read_csv(config['data_units_file'])
 def calcSecDiff(endTime:str, startTime:str=timestart_str, timezone_str:str='America/Chicago', verbose=False)->int:
     #timezone_str = 'America/Chicago'
     # Parse the string into a naive datetime object
@@ -106,7 +105,8 @@ def extract_metadata(pattern: Dict[str, Any],args):
     #print(f'CONIFG:{config}')
     headers=config['data_headers']
     #adding a loader for sensor context here.  This should really be done in a manner where this is a class that can be loaded into a file, but that would require extensive modifications, so we're going to hold off for now.
-    sen_meta=pd.read_csv(args.data_units_file)
+    #sen_meta=pd.read_csv(args.data_units_file)
+    
     subsys=False
     sen=False
     param=False
@@ -143,24 +143,41 @@ def extract_metadata(pattern: Dict[str, Any],args):
            
     ##Note the units variable is still a series.  We need to read into it.
     #!!!!!this text needs to be edited to expand the sensor types (pres to pressure, temp, to temperature), add readings, and explain that the time is the number of seconds past the start year.!!!!
-    
-    text = f"Host {",".join(map(str,ids))} with {",".join(map(str,labels))}, measuring units {units} at time {",".join(map(str,timestamps))} \n\n"
+    #print(f'units:{list(units)[0]}\n')#this is a dictionary.  I need to find out how to prioperly read it so only the iunit is stored.!!!!
+    make=labels[0]
+    model=labels[1]
+    sensor=labels[2]
+    #text = f"Host {",".join(map(str,ids))} with labels {", ".join(map(str,labels))}. The units of the parameter that is measured are {list(units)[0]}.  This measurement was at time {",".join(map(str,timestamps))} \n\n"
+    text = f"Host {",".join(map(str,ids))} with make {make}, model {model}, and sensor type {sensor}. The units of the sensor that is measured are {list(units)[0]}.  This measurement was at time {",".join(map(str,timestamps))} \n\n"
     return metadata, text, keys
 
-def provideGuidance(keys:list[str]):
+def provideGuidance(metadata:dict[str,list]):
         
         guidance= 'You are seeing sensor data from Chicago, IL USA. Keep this in mind when determining if something is anomalous or not.\n'
-        guidance += 'Chicago is not typically an extreme weather location, but can be affected by lake effects, polar vortices in winter, and humid conditions in summer.'
-        if 'timestamp' in keys:
+        guidance += 'Chicago is not typically an extreme weather location, but can be affected by lake effects, polar vortices in winter, and humid conditions in summer.\n'
+        guidance += 'The sensor data labels will include a subsystem, sensor, and parameter.  The parameter is the most important of the three and explains the type of sensor reading you are getting.\n'
+        guidance += 'The sensor data can have similar subsystem and sensor labels, but a different parameter label.  If this is the case, do not use the retreived pattern as comparison; it will be incorrect.\n'
+        
+        
+        print(f'METADATA!!:{metadata}\n')
+        labels=metadata['labels']
+        print(f'LABELS!!:{labels}\n')#this is the headers, not the data
+        print(f'SENMETA:!!:{sen_meta}\n')
+        result=sen_meta[labels[0] in (sen_meta['subsystem'])&(labels[1] in sen_meta['sensor'])&(labels[2] in sen_meta['parameter'])]
+        print(f'RESULT!!:{result}')
+        if result is not None:
+            guidance+=f'for the given sensor, the minimal value possible to be measured should be {list(result['hrf_minval'])[0]} and the maximum value possible to be measured should be {list(result['hrf_maxval'])[0]}.\n'
+            
+        if 'timestamp' in labels:
             guidance += 'The sensor data is heavily correllated with the date.  This date is provided as a feature and is in the form of UNIX Time.\n'
-        if 'temperature' in keys:
+        if 'temperature' in labels:
             guidance += '\nFor temperature data:\n'
-            guidance += '-temperature ranges on earth are generally normal between 0C in winter to 30C in summer generally.\n'
-        if 'pressure' in keys:
+            guidance += '-temperature ranges on earth are generally normal between 0C in winter to 30C in summer.\n'
+        if 'pressure' in labels:
             guidance += '\nFor Pressure Data:\n'
             guidance += '-pressure ranges variy with weather and altitude, but a low pressure is around 1000 hPa at sea level.\n'
             guidance += '-High pressure systems might show numbers at or above 3000 hPa at sea level.\n'
-        if 'humidity' in keys:
+        if 'humidity' in labels:
             guidance += '\nFor Humidity Data\n'
             guidance += '-humidity can only be within the range of 0 to 100 \% relative humitity.\n'
             guidance += '-humidity is usually lower during colder periods and higher during warmer periods, but closeness to a body of water or a damp environment like a swamp can effect this.\n'

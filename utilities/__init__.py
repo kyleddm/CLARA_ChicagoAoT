@@ -9,6 +9,7 @@ from .utilities import closest_divisor
 from .utilities import DEFAULT_CONFIG
 from .utilities import timestart_str
 from .utilities import config
+from .utilities import sen_meta
 from .utilities import returnUnixTime
 from .utilities import provideGuidance
 #from . import utilities
