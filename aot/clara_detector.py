@@ -54,12 +54,48 @@ class CLARA:
         metadata,text2,meta_keys=util.extract_metadata(sensor_data, self.args)
         #print(f'meta keys!!:{meta_keys}, sensor_data:{sensor_data}\n')         
         for key, value in sorted(sensor_data.items()):
-            if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(value, (int, float)):
-            #if key not in ['user_id', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
-                features.append(float(value))
             if key in meta_keys['timestamps'] and not isinstance(value, (int,float)):
                 unixVal=util.returnUnixTime(value)
                 features.append(unixVal)
+            if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(value, (int, float)):
+            #if key not in ['user_id', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
+                features.append(float(value))
+            elif key not in meta_keys['ids'] and key not in meta_keys['labels'] and  not isinstance(value, (int, float)):
+                try:
+                    features.append(float(value))
+                except ValueError:
+                    try:
+                        # Handle invalid numeric strings
+                        print(f"Error: '{value}' is not a valid number.  Attempting to convert to usable format...")
+                        parts = [p.strip() for p in value.split(",") if p.strip() != ""]
+                        numbers = []
+                        for p in parts:
+                            try:
+                                #print(f'Attempting conversion of {p} to a number...\n')
+                                # Try integer conversion first
+                                if '.' not in p and 'e' not in p.lower():
+                                    numbers.append(int(p))
+                                    #print(f'{type(int(p))} {p}\n')
+                                else:
+                                # Otherwise, try float conversion
+                                    numbers.append(float(p))
+                                    #print(f'{type(float(p))} {p}\n')
+                            except Exception as e:
+                                if type(e) is ValueError:
+                                    raise ValueError(f"Invalid number: '{p}'")
+                                else:
+                                    traceback.print_exc()
+                                    sys.exit(-1)#unknown error
+                        #print(f'timestamp component: {timStp}, Sample Value Component: {numbers}')
+                        features += numbers
+                        #print(f'current feature vector {feature_vector}\n')
+                        #feature_vector=[item for sublist in feature_vector for item in sublist]#this is breaking.  It's not flattening  FIX THIS!!
+                        #print(f'flattened feature vector {feature_vector}\n')
+                    except Exception as e:
+                        print(f'despite best efforts, {value} cannot have its value parameter converted.  Discarding..\n')#likely related to ID values
+                        traceback.print_exc()
+                        #sys.exit(-1)#unknown error
+                        features=[]
                 #print(f'converted time {value} to unixtime {unixVal}')
         if not features:
             features = [0.0] * 10
@@ -76,6 +112,8 @@ class CLARA:
             try:
                 with torch.no_grad():
                     features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
+                    if torch.cuda.is_available():
+                        features_tensor=features_tensor.to('cuda')
                     #print(f'features_tensor!!:{features_tensor}\n')
                     embedding = self.embedding_model(features_tensor).cpu().numpy()
                 
@@ -213,7 +251,7 @@ class CLARA:
             if key in meta_keys['values'] and isinstance(value, (int, float)):
                 metadata[key] = value
             if key in meta_keys['timestamps']:
-                timVal=str(value)
+                timVal=util.returnUnixTime(value)#str(value)
                 #timVal=util.pruneTime(str(value))
                 metadata[key] = timVal
         
@@ -255,8 +293,8 @@ class CLARA:
             
             print('Testing what comes out of the FAISS search:\n')
             test_dist, test_meta=self.vector_store.search(query_embedding, k)
-            #print(f'RETREIVED TEST DISTANCES!!: {test_dist}\n')
-            #print(f'RETREIVED TEST METADATA!!: {test_meta}\n')
+            print(f'RETREIVED TEST DISTANCES!!: {test_dist}\n')
+            print(f'RETREIVED TEST METADATA!!: {test_meta}\n')
             
             # if not enough results, do a general search            
             if len([d for d in distances if d != float('inf')]) < k // 2:
@@ -377,7 +415,6 @@ class CLARA:
         
         # multi-query retrieval   
         retrieved_patterns = self.multi_query_retrieval(sensor_data)
-        
         # sensor data augmentation   
         if use_llm:
             augmented_prompt = self.augmenter.augment_sensor_data(sensor_data, retrieved_patterns)

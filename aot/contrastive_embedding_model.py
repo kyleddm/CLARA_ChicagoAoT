@@ -103,11 +103,11 @@ class ContrastiveLoss(nn.Module):
 
         #loss computation: note this sums up over ALL LABELS
         # compute positive pair loss: pull similar patterns together        
-        pos_loss = (dist_matrix * pos_mask).sum() / (pos_mask.sum() + 1e-8)
+        pos_loss = (dist_matrix.to('cpu') * pos_mask.to('cpu')).sum() / (pos_mask.to('cpu').sum() + 1e-8)
         
         # compute negative pair loss: push dissimilar patterns apart        
-        neg_loss = torch.clamp(self.margin - dist_matrix, min=0) * neg_mask
-        neg_loss = neg_loss.sum() / (neg_mask.sum() + 1e-8)
+        neg_loss = torch.clamp(self.margin - dist_matrix.to('cpu'), min=0) * neg_mask.to('cpu')
+        neg_loss = neg_loss.to('cpu').sum() / (neg_mask.to('cpu').sum() + 1e-8)
         
         # combined loss        
         loss = pos_loss + self.lambda_neg * neg_loss
@@ -216,7 +216,7 @@ def train_embedding_model(features: np.ndarray,
             batch_labels = batch_labels.to(device)
                     
             optimizer.zero_grad()
-            batch_embeddings = model(batch_features)
+            batch_embeddings = model(batch_features).to(device)
             #print(f'batch embeddings shape!!:{batch_embeddings.shape}\n')
             loss = criterion(batch_embeddings, batch_labels)
             

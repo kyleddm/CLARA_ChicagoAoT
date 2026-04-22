@@ -93,7 +93,8 @@ def extract_metadata(pattern: Dict[str, Any],args):
     for key in timestamp_keys:
         ts=pattern.get(key, 'unknown')
         if ts!='unknown':
-            timestamps.append(returnUnixTime(ts))
+            #timestamps.append(returnUnixTime(ts))
+            timestamps.append(ts)
     for key in label_keys:
         key2=pattern.get(key, 'unknown')
         #print(f'key: {key}, key2: {key2}, data headers keys: {data_headers.keys()}')
@@ -159,12 +160,18 @@ def provideGuidance(metadata:dict[str,list]):
         guidance += 'The sensor data can have similar subsystem and sensor labels, but a different parameter label.  If this is the case, do not use the retreived pattern as comparison; it will be incorrect.\n'
         
         
-        print(f'METADATA!!:{metadata}\n')
+        #print(f'METADATA!!:{metadata}\n')
         labels=metadata['labels']
-        print(f'LABELS!!:{labels}\n')#this is the headers, not the data
-        print(f'SENMETA:!!:{sen_meta}\n')
-        result=sen_meta[labels[0] in (sen_meta['subsystem'])&(labels[1] in sen_meta['sensor'])&(labels[2] in sen_meta['parameter'])]
-        print(f'RESULT!!:{result}')
+        #print(f'LABELS!!:{labels}\n')#this is the headers, not the data
+        #print(f'SENMETA:!!:{sen_meta}\n')
+        if (labels[0] in list(sen_meta['subsystem']))&(labels[1] in list(sen_meta['sensor']))&(labels[2] in list(sen_meta['parameter'])):
+            result=sen_meta.query('@labels[0] in subsystem and @labels[1] in sensor and @labels[2] in parameter')#sen_meta[(labels[0] in sen_meta['subsystem'])&(labels[1] in sen_meta['sensor'])&(labels[2] in sen_meta['parameter'])]
+        else:
+            #print(f'{labels[0]} in metadata subsystems:{labels[0] in sen_meta['subsystem']}\n')
+            #print(f'{labels[1]} in metadata sensors:{labels[1] in sen_meta['sensor']}\n')
+            #print(f'{labels[2]} in metadata parameters:{labels[2] in sen_meta['parameter']}\n')
+            result=None
+        #print(f'RESULT!!:{result}')
         if result is not None:
             guidance+=f'for the given sensor, the minimal value possible to be measured should be {list(result['hrf_minval'])[0]} and the maximum value possible to be measured should be {list(result['hrf_maxval'])[0]}.\n'
             
@@ -179,7 +186,7 @@ def provideGuidance(metadata:dict[str,list]):
             guidance += '-High pressure systems might show numbers at or above 3000 hPa at sea level.\n'
         if 'humidity' in labels:
             guidance += '\nFor Humidity Data\n'
-            guidance += '-humidity can only be within the range of 0 to 100 \% relative humitity.\n'
+            guidance += '-humidity can only be within the range of 0 to 100 % relative humitity.\n'
             guidance += '-humidity is usually lower during colder periods and higher during warmer periods, but closeness to a body of water or a damp environment like a swamp can effect this.\n'
             
         ## add sensor-specific guidance        

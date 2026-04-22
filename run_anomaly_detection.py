@@ -56,16 +56,14 @@ def initialize_feedback_loop(detector, args):
 
 
 def load_training_data(detector, args):
-    
-    print(f"Loading training data from {args.csv_path}...")
-    
     # load dataset    
     if args.skip_training:
         print("Skipping training data loading as requested.")
         return
     
+    print(f"Loading training data from {args.csv_path}...")
     # use csv loader   #this needs to be generalized to load any csv data KDM 2025NOV21 
-    csv_loader = AotCSVLoader(args.csv_path)
+    csv_loader = AotCSVLoader(args)#(args.csv_path)
     
     # get available nodes    
     nodes = csv_loader.get_available_nodes()
@@ -75,7 +73,7 @@ def load_training_data(detector, args):
         data = {"synthetic_node": csv_loader.generate_synthetic_data(args.max_samples)}
     else:
         data = {}
-        for node_id in nodes[:3]:  # limit to first 3 nodes.  why?  KDM 2025NOV21            
+        for node_id in nodes:#[:3]:  # limit to first 3 nodes.  why?  KDM 2025NOV21            
             node_data = csv_loader.load_node_data(node_id, max_samples=args.max_samples)
             if node_data:
                 data[node_id] = node_data
@@ -103,19 +101,68 @@ def load_training_data(detector, args):
             labels = []
             for sample in all_samples:
                 #extract numerical features.  Time (without the year) is used here since it's very relevant
-                timStp=datetime.strptime(sample['timestamp'],"%Y/%m/%d %H:%M:%S").timestamp()
-                feature_vector=[timStp,sample['value']]
-                #feature_vector=[pruneTime(sample['timestamp']),sample['value_hrf']]
-                if feature_vector:
-                    #print(f'SAMPLE!!!{sample}')
-                    features.append(feature_vector)
-                    #we're going to use subsystem, sensor, and parameter labels as relevant data for the feature, but these need to be made into embeddings
-                    subsys=hash(sample['subsystem']) % 100
-                    sen=hash(sample['sensor']) % 100
-                    #we combine the subsystem (make) and sensor (model) together because what matters is the similarity between srnsors of similar parameters; we don't want CLARA adding the same weight to two temp sensors of different models and two completely different sensors of similar make
-                    #sen=hash(sample['sensor'] % 100)
-                    param=hash(sample['parameter']) % 100
-                    labels.append([subsys,sen,param])
+                try:
+                    timStp=datetime.strptime(sample['timestamp'],"%Y/%m/%d %H:%M:%S").timestamp()
+                    if not isinstance(sample['value'],str):
+                        feature_vector=[timStp,sample['value']]
+                    else:
+                        try:
+                            # Attempt conversion
+                            sample['value']= float(sample['value'])
+                            feature_vector=[timStp,sample['value']]
+                        except ValueError:
+                            try:
+                                # Handle invalid numeric strings
+                                print(f"Error: '{sample['value']}' is not a valid number.  Attempting to convert to usable format...")
+                                parts = [p.strip() for p in sample['value'].split(",") if p.strip() != ""]
+                                numbers = []
+                                for p in parts:
+                                    try:
+                                        print(f'Attempting conversion of {p} to a number...\n')
+                                        # Try integer conversion first
+                                        if '.' not in p and 'e' not in p.lower():
+                                            numbers.append(int(p))
+                                            print(f'{type(int(p))} {p}\n')
+                                        else:
+                                        # Otherwise, try float conversion
+                                            numbers.append(float(p))
+                                            print(f'{type(float(p))} {p}\n')
+                                    except Exception as e:
+                                        if type(e) is ValueError:
+                                            raise ValueError(f"Invalid number: '{p}'")
+                                        else:
+                                            traceback.print_exc()
+                                            sys.exit(-1)#unknown error
+                                print(f'timestamp component: {timStp}, Sample Value Component: {numbers}')
+                                feature_vector=[]
+                                feature_vector=[timStp]+numbers
+                                print(f'current feature vector {feature_vector}\n')
+                                #feature_vector=[item for sublist in feature_vector for item in sublist]#this is breaking.  It's not flattening  FIX THIS!!
+                                #print(f'flattened feature vector {feature_vector}\n')
+                            except Exception as e:
+                                print(f'despite best efforts sample {sample} cannot have its value parameter converted.  Discarding sample\n')#likely related to ID values
+                                traceback.print_exc()
+                                #sys.exit(-1)#unknown error
+                                feature_vector=[]
+
+                                #raise TypeError(f'value parameter was expected to be a number but was a {type(sample['value'])}')
+                    #feature_vector=[pruneTime(sample['timestamp']),sample['value_hrf']]
+                    if feature_vector:
+                        #print(f'SAMPLE!!!{sample}')
+                        features.append(feature_vector)
+                        #we're going to use subsystem, sensor, and parameter labels as relevant data for the feature, but these need to be made into embeddings
+                        subsys=hash(sample['subsystem']) % 100
+                        sen=hash(sample['sensor']) % 100
+                        #we combine the subsystem (make) and sensor (model) together because what matters is the similarity between srnsors of similar parameters; we don't want CLARA adding the same weight to two temp sensors of different models and two completely different sensors of similar make
+                        #sen=hash(sample['sensor'] % 100)
+                        param=hash(sample['parameter']) % 100
+                        labels.append([subsys,sen,param])
+                except Exception as e:
+                    print(f"Error loading feature vector: {e}.  Proceed with caution")
+                    #traceback.print_exc()
+                    #if type(e) is TypeError:
+                    #    sys.exit(-2)#-2 is type error
+
                     
                     
             #for sample in all_samples:
@@ -462,6 +509,8 @@ def parse_arguments():
     parser.add_argument("--contrastive-training-epochs", type=int, default=10)
     
     parser.add_argument("--contrastive-embedding-dim", type=int, default=768)
+
+    parser.add_argument("--magic-number", type=int, default=42)
     
     args = parser.parse_args()
     return args
@@ -496,7 +545,7 @@ def main():
     # run demonstration    
     anomalous_sample = run_detection_demo(detector, feedback_loop, args)
     
-    print(f'ANOMALOUS SAMPLE!!:\n{anomalous_sample}\n')
+    #print(f'ANOMALOUS SAMPLE!!:\n{anomalous_sample}\n')
     
     # detailed analysis of a sample
     #print(f'Analyzing sample data in detail:\n')    

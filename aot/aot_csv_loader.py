@@ -9,9 +9,10 @@ class AotCSVLoader:
     #cols: timestamp,node_id,subsystem,sensor,parameter,value_hrf
     
 
-    def __init__(self, csv_file_path: str):
+    def __init__(self, args):#csv_file_path: str):
         
-        self.csv_file_path = csv_file_path
+        self.csv_file_path = args.csv_path#csv_file_path
+        self.magic_number=args.magic_number
         self.df = None
         self.param_df=None
         #we truncated the data to reduce size, this tells us the meanings of the truncated components
@@ -19,13 +20,13 @@ class AotCSVLoader:
         self.param_def={'hum':'humidity','temp':'temperature','pres':'pressure'}
         self.data_headers={**self.subsystem_def, **self.param_def}
         # verify the file exists        
-        if not os.path.exists(csv_file_path):
-            print(f"Warning: CSV file not found at {csv_file_path}")
+        if not os.path.exists(self.csv_file_path):
+            print(f"Warning: CSV file not found at {self.csv_file_path}")
         else:
             try:
                 # load the file as a pandas dataframe                
-                print(f"Loading Sensor data from {csv_file_path}...")
-                self.df = pd.read_csv(csv_file_path)
+                print(f"Loading Sensor data from {self.csv_file_path}...")
+                self.df = pd.read_csv(self.csv_file_path)
                 print(f"Successfully loaded data with {len(self.df)} rows and {len(self.df.columns)} columns\n")
                 #print(f"columns in data: {self.df.columns}\n")
             except Exception as e:
@@ -105,7 +106,7 @@ class AotCSVLoader:
         
         # limit samples if specified        
         if max_samples is not None:
-            filtered_df = filtered_df.head(max_samples)
+            filtered_df = filtered_df.sample(n=max_samples, random_state=self.magic_number)#.head(max_samples)
         
         # convert dataframe rows to dictionaries        
         sensor_data_list = []
@@ -141,6 +142,7 @@ class AotCSVLoader:
         
         # apply filters        
         filtered_df = self.df
+        magic_number=self.magic_number
         
         if node is not None:
             if 'node_id' in self.df.columns:
@@ -165,7 +167,7 @@ class AotCSVLoader:
         
         # limit samples if specified        
         if max_samples is not None:
-            filtered_df = filtered_df.head(max_samples)
+            filtered_df = filtered_df.sample(n=max_samples,random_state=self.magic_number)#.head(max_samples)
         
         return filtered_df
     
