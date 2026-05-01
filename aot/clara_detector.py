@@ -57,7 +57,7 @@ class CLARA:
             if key in meta_keys['timestamps'] and not isinstance(value, (int,float)):
                 unixVal=util.returnUnixTime(value)
                 features.append(unixVal)
-            if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(value, (int, float)):
+            elif key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(value, (int, float)):
             #if key not in ['user_id', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
                 features.append(float(value))
             elif key not in meta_keys['ids'] and key not in meta_keys['labels'] and  not isinstance(value, (int, float)):
@@ -82,7 +82,7 @@ class CLARA:
                                     #print(f'{type(float(p))} {p}\n')
                             except Exception as e:
                                 if type(e) is ValueError:
-                                    raise ValueError(f"Invalid number: '{p}'")
+                                    raise ValueError(f'Invalid number: {p}')
                                 else:
                                     traceback.print_exc()
                                     sys.exit(-1)#unknown error
@@ -92,7 +92,7 @@ class CLARA:
                         #feature_vector=[item for sublist in feature_vector for item in sublist]#this is breaking.  It's not flattening  FIX THIS!!
                         #print(f'flattened feature vector {feature_vector}\n')
                     except Exception as e:
-                        print(f'despite best efforts, {value} cannot have its value parameter converted.  Discarding..\n')#likely related to ID values
+                        print(f'despite best efforts, {key}:{value} cannot have its value parameter converted.  Discarding..\n')#likely related to ID values
                         traceback.print_exc()
                         #sys.exit(-1)#unknown error
                         features=[]
@@ -105,7 +105,7 @@ class CLARA:
     def _create_embedding(self, sensor_data: Dict[str, Any]) -> np.ndarray:
         
         features = self._sensor_to_features(sensor_data)
-
+        print(f'generating embedding from {features}')
         #print(f"Feature shape: {features.shape}")
         # if we have a trained embedding model, use it       
         if self.embedding_model:

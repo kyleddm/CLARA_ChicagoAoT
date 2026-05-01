@@ -232,6 +232,7 @@ def load_training_data(detector, args):
             if i % 10 == 0:
                 print(f"  Added {i}/{len(normal_samples)} normal patterns...", end="\r")
             
+            print(f'sample: {sample}')
             detector.add_normal_pattern(
                 sample,
                 description=f"Normal pattern for node {node_id} with {sample.get('subsystem', 'unknownwn subsystem')}, {sample.get('sensor', 'unknownwn sensor')}, {sample.get('parameter', 'unknownwn parameter')}"
