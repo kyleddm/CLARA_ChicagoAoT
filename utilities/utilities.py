@@ -149,7 +149,11 @@ def extract_metadata(pattern: Dict[str, Any],args):
     model=labels[1]
     sensor=labels[2]
     #text = f"Host {",".join(map(str,ids))} with labels {", ".join(map(str,labels))}. The units of the parameter that is measured are {list(units)[0]}.  This measurement was at time {",".join(map(str,timestamps))} \n\n"
-    text = f"Host {",".join(map(str,ids))} with make {make}, model {model}, and sensor type {sensor}. The units of the sensor that is measured are {list(units)[0]}.  This measurement was at time {",".join(map(str,timestamps))} \n\n"
+    #print(f'UNITS CHECK!!:{units}\n')
+    if len(list(units)) is not 0:
+        text = f"Host {",".join(map(str,ids))} with make {make}, model {model}, and sensor type {sensor}. The units of the sensor that is measured are {list(units)[0]}.  This measurement was at time {",".join(map(str,timestamps))} \n\n"#some things are unitless.  This needs ot be checked beforehand and set to "none" if so
+    else:
+        text = f"Host {",".join(map(str,ids))} with make {make}, model {model}, and sensor type {sensor}. The units of the sensor that is measured are unitless.  This measurement was at time {",".join(map(str,timestamps))} \n\n"#some things are unitless.  This needs ot be checked beforehand and set to "none" if so
     return metadata, text, keys
 
 def provideGuidance(metadata:dict[str,list]):

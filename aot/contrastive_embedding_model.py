@@ -27,7 +27,7 @@ class ContrastiveEmbeddingModel(nn.Module):
     def __init__(self, input_dim: int, embedding_dim: int = 768):
 
         super(ContrastiveEmbeddingModel, self).__init__()
-        
+        self.input_siz=input_dim
         # multi-layer network        
         self.network = nn.Sequential(
             nn.Linear(input_dim, 1024),
@@ -198,7 +198,10 @@ def train_embedding_model(features: np.ndarray,
     #    print(dataset.__getitem__(i))
     # initialize model    
     input_dim = features.shape[1]
+    print(f'INPUT DIM!:{input_dim}\n')#make sure to pad the features when inferring!
+    
     model = ContrastiveEmbeddingModel(input_dim, embedding_dim).to(device)
+    model.input_siz=input_dim
     
     # initialize loss function and optimizer    
     criterion = ContrastiveLoss(margin=margin, lambda_neg=lambda_neg)

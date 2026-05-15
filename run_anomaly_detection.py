@@ -272,7 +272,7 @@ def run_detection_demo(detector, feedback_loop, args):
     print("\nRunning anomaly detection demonstration...")
     
     # load test data (a small subset)    
-    csv_loader = AotCSVLoader(args.csv_path)
+    csv_loader = AotCSVLoader(args)
     nodes = csv_loader.get_available_nodes()
     
     #csv_loader = ExtraSensoryCSVLoader(args.csv_path)
@@ -543,6 +543,9 @@ def main():
     # load training data    
     load_training_data(detector, args)
     print(f'running detection demo:\n')
+    
+    #print(f'Checking arguments before detection demo: {args}\n')
+    
     # run demonstration    
     anomalous_sample = run_detection_demo(detector, feedback_loop, args)
     

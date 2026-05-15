@@ -46,7 +46,7 @@ class CLARA:
         
         self.embedding_model = None
     
-    def _sensor_to_features(self, sensor_data: Dict[str, Any]) -> np.ndarray:
+    def _sensor_to_features(self, sensor_data: Dict[str, Any], pad=0) -> np.ndarray:
 
         features = []
         #print(f'sensor data: {sensor_data}')
@@ -111,7 +111,11 @@ class CLARA:
         if self.embedding_model:
             try:
                 with torch.no_grad():
+                    pad=self.embedding_model.input_siz-len(features)
+                    pad_arr=np.zeros(pad)
+                    features=np.concatenate([features, pad_arr])
                     features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
+                    
                     if torch.cuda.is_available():
                         features_tensor=features_tensor.to('cuda')
                     #print(f'features_tensor!!:{features_tensor}\n')
@@ -295,7 +299,7 @@ class CLARA:
             test_dist, test_meta=self.vector_store.search(query_embedding, k)
             print(f'RETREIVED TEST DISTANCES!!: {test_dist}\n')
             print(f'RETREIVED TEST METADATA!!: {test_meta}\n')
-            
+            #NOTE: Despite there being a similar pattern here, it's not showing up.  Need to review!
             # if not enough results, do a general search            
             if len([d for d in distances if d != float('inf')]) < k // 2:
                 general_distances, general_metadata = self.vector_store.search(query_embedding, k)
@@ -415,6 +419,10 @@ class CLARA:
         
         # multi-query retrieval   
         retrieved_patterns = self.multi_query_retrieval(sensor_data)
+        
+        #print{f'Looking for patterns in the vector store similar to {sensor_data}.\n'}
+        #print{f'Out result yeilded the following retreived patterns: {retrieved_patterns}\n'}
+        
         # sensor data augmentation   
         if use_llm:
             augmented_prompt = self.augmenter.augment_sensor_data(sensor_data, retrieved_patterns)
