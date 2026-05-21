@@ -23,7 +23,7 @@ from datetime import datetime
 DEFAULT_CSV_PATH = "/mnt/e/input/chicago_aot/big2018-03-30_00.36.46.csv"#"/mnt/e/input/clara/no_watch_data_imputed_replaced_cleaned.csv"#"/home/ai-lab2/GAIN-Pytorch-master/data/no_watch_data_imputed_replaced_cleaned.csv"
 DEFAULT_MODEL = "llama3.2:1b"
 DEFAULT_API_BASE = "http://localhost:11434"
-DEFAULT_VECTOR_STORE = "extrasensory_vector_store.faiss"
+DEFAULT_VECTOR_STORE = "vector_store.faiss"
 DEFAULT_FEEDBACK_LOG = "feedback_log.json"
 DEFAULT_CONFIG_PATH="./config.json"
 

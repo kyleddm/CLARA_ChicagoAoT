@@ -221,57 +221,58 @@ class SensorDataAugmenter:
         return prompt
 
 
-
-if __name__ == "__main__":
-    # create a sample sensor data    
-    sensor_data = {
-        "user_id": "user123",
-        "activity": "walking",
-        "timestamp": "2023-01-01T12:00:00",
-        "acc_x": 0.5,
-        "acc_y": 8.5,
-        "acc_z": 0.9,
-        "gyro_x": 0.12,
-        "gyro_y": 0.22,
-        "gyro_z": 0.11
-    }
-    
-    # sample retrieved context    
-    retrieved_context = [
-        {
-            "distance": 0.2,
-            "is_anomaly": False,
+def nullFunc():
+    if __name__ == "__main__":
+        # create a sample sensor data    
+        sensor_data = {
+            "user_id": "user123",
             "activity": "walking",
-            "description": "Normal walking pattern with regular gait",
-            "acc_x": 0.1,
-            "acc_y": 9.8,
-            "acc_z": 0.2,
-            "gyro_x": 0.01,
-            "gyro_y": 0.02,
-            "gyro_z": 0.01
-        },
-        {
-            "distance": 0.8,
-            "is_anomaly": True,
-            "activity": "walking",
-            "anomaly_type": "behavioral",
-            "explanation": "Irregular walking pattern showing unusual acceleration",
-            "acc_x": 0.4,
-            "acc_y": 8.7,
-            "acc_z": 0.7,
-            "gyro_x": 0.10,
-            "gyro_y": 0.20,
-            "gyro_z": 0.10
+            "timestamp": "2023-01-01T12:00:00",
+            "acc_x": 0.5,
+            "acc_y": 8.5,
+            "acc_z": 0.9,
+            "gyro_x": 0.12,
+            "gyro_y": 0.22,
+            "gyro_z": 0.11
         }
-    ]
-    
-    # instantiate the augmenter    
-    augmenter = SensorDataAugmenter()
-    
-    # augment the data    
-    augmented_prompt = augmenter.augment_sensor_data(sensor_data, retrieved_context)
-    
-    # print the result    
-    print("Generated Prompt for LLM:")
-    print("-" * 80)
-    print(augmented_prompt)
+        
+        # sample retrieved context    
+        retrieved_context = [
+            {
+                "distance": 0.2,
+                "is_anomaly": False,
+                "activity": "walking",
+                "description": "Normal walking pattern with regular gait",
+                "acc_x": 0.1,
+                "acc_y": 9.8,
+                "acc_z": 0.2,
+                "gyro_x": 0.01,
+                "gyro_y": 0.02,
+                "gyro_z": 0.01
+            },
+            {
+                "distance": 0.8,
+                "is_anomaly": True,
+                "activity": "walking",
+                "anomaly_type": "behavioral",
+                "explanation": "Irregular walking pattern showing unusual acceleration",
+                "acc_x": 0.4,
+                "acc_y": 8.7,
+                "acc_z": 0.7,
+                "gyro_x": 0.10,
+                "gyro_y": 0.20,
+                "gyro_z": 0.10
+            }
+        ]
+        
+        # instantiate the augmenter    
+        augmenter = SensorDataAugmenter()
+        
+        # augment the data    
+        augmented_prompt = augmenter.augment_sensor_data(sensor_data, retrieved_context)
+        
+        # print the result    
+        print("Generated Prompt for LLM:")
+        print("-" * 80)
+        print(augmented_prompt)
+    return None

@@ -297,7 +297,7 @@ class CLARA:
             
             print('Testing what comes out of the FAISS search:\n')
             test_dist, test_meta=self.vector_store.search(query_embedding, k)
-            print(f'RETREIVED TEST DISTANCES!!: {test_dist}\n')
+            #print(f'RETREIVED TEST DISTANCES!!: {test_dist}\n')
             print(f'RETREIVED TEST METADATA!!: {test_meta}\n')
             #NOTE: Despite there being a similar pattern here, it's not showing up.  Need to review!
             # if not enough results, do a general search            
@@ -436,6 +436,7 @@ class CLARA:
         
         # if we can't use the llm, fall back to rule-based analysis        
         if not use_llm:
+            print('LLM NOT USED!  Falling back to rules-based analysis')
             return self._rule_based_analysis(sensor_data, retrieved_patterns, 
                                             semantic_anomaly, metrics)
         
@@ -458,7 +459,10 @@ class CLARA:
         
         # multi-modal pattern recognition      
         multi_modal_anomaly = semantic_anomaly and ctx_anomaly_score > 0.5
-        multi_modal_explanation = "Pattern shows unusual relationships between different sensors."
+        if multi_modal_anomaly:
+            multi_modal_explanation = 'Pattern shows unusual relationships between different sensors.'
+        else:
+            multi_modal_explanation=''
         
         # explanation-driven detection        
         exp_anomaly, exp_confidence, exp_explanation = self.explanation_detector.detect(
@@ -488,7 +492,7 @@ class CLARA:
         
         # combine confidences        
         # use explanation confidence as base, adjusted by other methods
-        print(f'METRICS!!: {metrics}\n')       
+        #print(f'METRICS!!: {metrics}\n')       
         combined_confidence = exp_confidence
         if semantic_anomaly:
             if metrics["min_normal_distance"] is not None:
@@ -500,7 +504,7 @@ class CLARA:
         
         # enhance explanation        
         # combine all explanations, prioritizing the most informative ones        
-        enhanced_explanation = exp_explanation
+        enhanced_explanation = multi_modal_explanation + '.  ' + exp_explanation+ '.  '+ctx_explanation
         
         # determine anomaly type         
         anomaly_type = "unknown"
@@ -541,7 +545,7 @@ class CLARA:
             "is_anomaly": combined_anomaly,
             "confidence": combined_confidence,
             "anomaly_type": anomaly_type if combined_anomaly else None,
-            "explanation": enhanced_explanation,
+            "LLM explanation": enhanced_explanation,
             "user_friendly_message": user_friendly_message,
             "notable_deviations": notable_deviations,
             "recommended_actions": recommended_actions,
@@ -646,71 +650,72 @@ class CLARA:
         """
         self.vector_store.save(vector_store_path)
 
-
-if __name__ == "__main__": 
-    clara = CLARA()
-    
-    # create some sample data    
-    normal_pattern = {
-        "user_id": "user123",
-        "activity": "walking",
-        "timestamp": "2023-01-01T12:00:00",
-        "acc_x": 0.1,
-        "acc_y": 9.8,
-        "acc_z": 0.2,
-        "gyro_x": 0.01,
-        "gyro_y": 0.02,
-        "gyro_z": 0.01
-    }
-    
-    anomaly_pattern = {
-        "user_id": "user123",
-        "activity": "walking",
-        "timestamp": "2023-01-02T15:30:00",
-        "acc_x": 0.5,
-        "acc_y": 8.5,
-        "acc_z": 0.9,
-        "gyro_x": 0.12,
-        "gyro_y": 0.22,
-        "gyro_z": 0.11
-    }
-    
-    # add patterns to the database    
-    clara.add_normal_pattern(normal_pattern, "Normal walking pattern")
-    clara.add_anomaly_pattern(
-        anomaly_pattern,
-        "behavioral",
-        "Irregular walking pattern with unusual acceleration"
-    )
-    
-    # test pattern - mix of normal and anomaly    
-    test_pattern = {
-        "user_id": "user123",
-        "activity": "walking",
-        "timestamp": "2023-01-03T10:15:00",
-        "acc_x": 0.3,
-        "acc_y": 9.0,
-        "acc_z": 0.5,
-        "gyro_x": 0.08,
-        "gyro_y": 0.15,
-        "gyro_z": 0.07
-    }
-    
-    # detect anomalies    
-    print("Testing with LLM:")
-    try:
-        result = clara.detect_anomalies(test_pattern, use_llm=True)
+def nullFunc():
+    if __name__ == "__main__": 
+        clara = CLARA()
+        
+        # create some sample data    
+        normal_pattern = {
+            "user_id": "user123",
+            "activity": "walking",
+            "timestamp": "2023-01-01T12:00:00",
+            "acc_x": 0.1,
+            "acc_y": 9.8,
+            "acc_z": 0.2,
+            "gyro_x": 0.01,
+            "gyro_y": 0.02,
+            "gyro_z": 0.01
+        }
+        
+        anomaly_pattern = {
+            "user_id": "user123",
+            "activity": "walking",
+            "timestamp": "2023-01-02T15:30:00",
+            "acc_x": 0.5,
+            "acc_y": 8.5,
+            "acc_z": 0.9,
+            "gyro_x": 0.12,
+            "gyro_y": 0.22,
+            "gyro_z": 0.11
+        }
+        
+        # add patterns to the database    
+        clara.add_normal_pattern(normal_pattern, "Normal walking pattern")
+        clara.add_anomaly_pattern(
+            anomaly_pattern,
+            "behavioral",
+            "Irregular walking pattern with unusual acceleration"
+        )
+        
+        # test pattern - mix of normal and anomaly    
+        test_pattern = {
+            "user_id": "user123",
+            "activity": "walking",
+            "timestamp": "2023-01-03T10:15:00",
+            "acc_x": 0.3,
+            "acc_y": 9.0,
+            "acc_z": 0.5,
+            "gyro_x": 0.08,
+            "gyro_y": 0.15,
+            "gyro_z": 0.07
+        }
+        
+        # detect anomalies    
+        print("Testing with LLM:")
+        try:
+            result = clara.detect_anomalies(test_pattern, use_llm=True)
+            print(f"Is anomaly: {result['is_anomaly']}")
+            print(f"Confidence: {result['confidence']:.2f}")
+            print(f"Anomaly type: {result['anomaly_type']}")
+            print(f"Explanation: {result['explanation']}")
+        except Exception as e:
+            print(f"LLM-based detection failed: {e}")
+            print("Falling back to rule-based analysis...")
+        
+        print("\nTesting with rule-based analysis:")
+        result = clara.detect_anomalies(test_pattern, use_llm=False)
         print(f"Is anomaly: {result['is_anomaly']}")
         print(f"Confidence: {result['confidence']:.2f}")
         print(f"Anomaly type: {result['anomaly_type']}")
         print(f"Explanation: {result['explanation']}")
-    except Exception as e:
-        print(f"LLM-based detection failed: {e}")
-        print("Falling back to rule-based analysis...")
-    
-    print("\nTesting with rule-based analysis:")
-    result = clara.detect_anomalies(test_pattern, use_llm=False)
-    print(f"Is anomaly: {result['is_anomaly']}")
-    print(f"Confidence: {result['confidence']:.2f}")
-    print(f"Anomaly type: {result['anomaly_type']}")
-    print(f"Explanation: {result['explanation']}")
+    return None

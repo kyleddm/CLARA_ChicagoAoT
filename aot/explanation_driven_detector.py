@@ -315,77 +315,78 @@ class ExplanationDrivenDetector:
         return is_anomaly, confidence, explanation
 
 
-
-if __name__ == "__main__":
-    # I'm just using a mock llm client for testing    
-    class MockLLM:
-        def generate(self, prompt):
-            # simulate llm response            
-            return json.dumps({
-                "is_anomaly": True,
-                "confidence": 0.85,
-                "explanation": "The current pattern shows significant deviations in accelerometer readings compared to normal walking patterns. The acc_y value of 8.5 is much lower than the expected 9.8 (gravity), and acc_x and acc_z values (0.5 and 0.9) are higher than usual (typically around 0.1-0.2).",
-                "user_friendly_message": "Your walking pattern looks unusual. The way you're holding or moving with your phone is different from your normal walking.",
-                "notable_deviations": [
-                    "Accelerometer y-axis is 13% lower than normal",
-                    "Accelerometer x-axis is 5x higher than normal",
-                    "Accelerometer z-axis is 4.5x higher than normal"
-                ],
-                "recommended_actions": [
-                    "Check if phone position has changed",
-                    "Verify if walking surface is different",
-                    "Monitor for consistent pattern changes"
-                ]
-            })
-    
-    # create sample data    
-    pattern = {
-        "user_id": "user123",
-        "activity": "walking",
-        "timestamp": "2023-01-01T12:00:00",
-        "acc_x": 0.5,
-        "acc_y": 8.5,
-        "acc_z": 0.9,
-        "gyro_x": 0.12,
-        "gyro_y": 0.22,
-        "gyro_z": 0.11
-    }
-    
-    retrieved_context = [
-        {
-            "distance": 0.2,
-            "is_anomaly": False,
+def nullFunc():
+    if __name__ == "__main__":
+        # I'm just using a mock llm client for testing    
+        class MockLLM:
+            def generate(self, prompt):
+                # simulate llm response            
+                return json.dumps({
+                    "is_anomaly": True,
+                    "confidence": 0.85,
+                    "explanation": "The current pattern shows significant deviations in accelerometer readings compared to normal walking patterns. The acc_y value of 8.5 is much lower than the expected 9.8 (gravity), and acc_x and acc_z values (0.5 and 0.9) are higher than usual (typically around 0.1-0.2).",
+                    "user_friendly_message": "Your walking pattern looks unusual. The way you're holding or moving with your phone is different from your normal walking.",
+                    "notable_deviations": [
+                        "Accelerometer y-axis is 13% lower than normal",
+                        "Accelerometer x-axis is 5x higher than normal",
+                        "Accelerometer z-axis is 4.5x higher than normal"
+                    ],
+                    "recommended_actions": [
+                        "Check if phone position has changed",
+                        "Verify if walking surface is different",
+                        "Monitor for consistent pattern changes"
+                    ]
+                })
+        
+        # create sample data    
+        pattern = {
+            "user_id": "user123",
             "activity": "walking",
-            "description": "Normal walking pattern with regular gait",
-            "acc_x": 0.1,
-            "acc_y": 9.8,
-            "acc_z": 0.2,
-            "gyro_x": 0.01,
-            "gyro_y": 0.02,
-            "gyro_z": 0.01
-        },
-        {
-            "distance": 0.8,
-            "is_anomaly": True,
-            "activity": "walking",
-            "anomaly_type": "behavioral",
-            "explanation": "Irregular walking pattern showing unusual acceleration",
-            "acc_x": 0.4,
-            "acc_y": 8.7,
-            "acc_z": 0.7,
-            "gyro_x": 0.10,
-            "gyro_y": 0.20,
-            "gyro_z": 0.10
+            "timestamp": "2023-01-01T12:00:00",
+            "acc_x": 0.5,
+            "acc_y": 8.5,
+            "acc_z": 0.9,
+            "gyro_x": 0.12,
+            "gyro_y": 0.22,
+            "gyro_z": 0.11
         }
-    ]
-    
-    # initialize detector with mock llm    
-    detector = ExplanationDrivenDetector(MockLLM())
-    
-    # perform detection    
-    is_anomaly, confidence, explanation = detector.detect(pattern, retrieved_context)
-      
-    print("Explanation-Driven Detection Result:")
-    print(f"Is Anomaly: {is_anomaly}")
-    print(f"Confidence: {confidence:.4f}")
-    print(f"Explanation:\n{explanation}")
+        
+        retrieved_context = [
+            {
+                "distance": 0.2,
+                "is_anomaly": False,
+                "activity": "walking",
+                "description": "Normal walking pattern with regular gait",
+                "acc_x": 0.1,
+                "acc_y": 9.8,
+                "acc_z": 0.2,
+                "gyro_x": 0.01,
+                "gyro_y": 0.02,
+                "gyro_z": 0.01
+            },
+            {
+                "distance": 0.8,
+                "is_anomaly": True,
+                "activity": "walking",
+                "anomaly_type": "behavioral",
+                "explanation": "Irregular walking pattern showing unusual acceleration",
+                "acc_x": 0.4,
+                "acc_y": 8.7,
+                "acc_z": 0.7,
+                "gyro_x": 0.10,
+                "gyro_y": 0.20,
+                "gyro_z": 0.10
+            }
+        ]
+        
+        # initialize detector with mock llm    
+        detector = ExplanationDrivenDetector(MockLLM())
+        
+        # perform detection    
+        is_anomaly, confidence, explanation = detector.detect(pattern, retrieved_context)
+        
+        print("Explanation-Driven Detection Result:")
+        print(f"Is Anomaly: {is_anomaly}")
+        print(f"Confidence: {confidence:.4f}")
+        print(f"Explanation:\n{explanation}")
+    return None

@@ -479,63 +479,64 @@ class AotCSVLoader:
         
         return data
 
-
-if __name__ == "__main__":
-    # test loading from csv file    
-    csv_path = "./input/big2018-03-30_00.36.46.csv"
-    loader = AotCSVLoader(csv_path)
-    
-    # print statistics    
-    stats = loader.get_data_statistics()
-    print("\nDataset Statistics:")
-    for key, value in stats.items():
-        if key == 'sensor_groups':
-            print(f"Sensor Groups:")
-            for group, columns in value.items():
-                print(f"  - {group}: {len(columns)} columns")
-        else:
-            print(f"  - {key}: {value}")
-    
-    # print available users and activities    
-    nodes = loader.get_available_nodes()
-    subsystems = loader.get_available_subsystems()
-    sensors = loader.get_available_sensors()
-    parameters = loader.get_available_parameters()
-    
-    print(f"\nFound {len(nodes)} nodes")
-    if nodes:
-        print(f"Sample users: {nodes[:5]}")
-    print(f"Found {len(subsystems)} subsystems")
-    if subsystems:
-        print(f"Sample usbsystems: {subsystems[:10]}")
-    print(f"Found {len(sensors)} sensors")
-    if sensors:
-        print(f"Sample sensors: {sensors[:10]}")
-    print(f"Found {len(parameters)} parameters")
-    if parameters:
-        print(f"Sample parameters: {parameters[:5]}")
-    
-    
-    # load some sample data    
-    if nodes and subsystems and sensors and parameters:
-        node = nodes[0]
-        subsystem = subsystems[0]
-        sensor= sensors[0]
-        parameter=parameters[0]
-        samples = loader.load_user_data(node, subsystem, sensor, parameter, max_samples=5)
+def nullFunc():
+    if __name__ == "__main__":
+        # test loading from csv file    
+        csv_path = "./input/big2018-03-30_00.36.46.csv"
+        loader = AotCSVLoader(csv_path)
         
-        print(f"\nSample data for node {node}, subsystem {subsystem}, sensor {sensor}, parameter {parameter}:")
-        for i, sample in enumerate(samples):
-            print(f"Sample {i+1}: {list(sample.keys())[:10]}")
+        # print statistics    
+        stats = loader.get_data_statistics()
+        print("\nDataset Statistics:")
+        for key, value in stats.items():
+            if key == 'sensor_groups':
+                print(f"Sensor Groups:")
+                for group, columns in value.items():
+                    print(f"  - {group}: {len(columns)} columns")
+            else:
+                print(f"  - {key}: {value}")
+        
+        # print available users and activities    
+        nodes = loader.get_available_nodes()
+        subsystems = loader.get_available_subsystems()
+        sensors = loader.get_available_sensors()
+        parameters = loader.get_available_parameters()
+        
+        print(f"\nFound {len(nodes)} nodes")
+        if nodes:
+            print(f"Sample users: {nodes[:5]}")
+        print(f"Found {len(subsystems)} subsystems")
+        if subsystems:
+            print(f"Sample usbsystems: {subsystems[:10]}")
+        print(f"Found {len(sensors)} sensors")
+        if sensors:
+            print(f"Sample sensors: {sensors[:10]}")
+        print(f"Found {len(parameters)} parameters")
+        if parameters:
+            print(f"Sample parameters: {parameters[:5]}")
+        
+        
+        # load some sample data    
+        if nodes and subsystems and sensors and parameters:
+            node = nodes[0]
+            subsystem = subsystems[0]
+            sensor= sensors[0]
+            parameter=parameters[0]
+            samples = loader.load_user_data(node, subsystem, sensor, parameter, max_samples=5)
             
-            # print a few sensor values            
-            sensor_values = {k: v for k, v in sample.items() 
-                            if k not in ['node_id', 'subsystem', 'sensor', 'parameter', 'timestamp'] and i < 3}
-            print(f"  Sensor values (sample): {list(sensor_values.items())[:5]}")
-    
-    # test synthetic data generation    
-    print("\nGenerating synthetic data based on the dataset patterns...")
-    synthetic_data = loader.generate_synthetic_data(5)
-    print(f"Generated {len(synthetic_data)} synthetic samples")
-    if synthetic_data:
-        print(f"Sample synthetic data: {list(synthetic_data[0].keys())[:10]}")
+            print(f"\nSample data for node {node}, subsystem {subsystem}, sensor {sensor}, parameter {parameter}:")
+            for i, sample in enumerate(samples):
+                print(f"Sample {i+1}: {list(sample.keys())[:10]}")
+                
+                # print a few sensor values            
+                sensor_values = {k: v for k, v in sample.items() 
+                                if k not in ['node_id', 'subsystem', 'sensor', 'parameter', 'timestamp'] and i < 3}
+                print(f"  Sensor values (sample): {list(sensor_values.items())[:5]}")
+        
+        # test synthetic data generation    
+        print("\nGenerating synthetic data based on the dataset patterns...")
+        synthetic_data = loader.generate_synthetic_data(5)
+        print(f"Generated {len(synthetic_data)} synthetic samples")
+        if synthetic_data:
+            print(f"Sample synthetic data: {list(synthetic_data[0].keys())[:10]}")
+    return None
