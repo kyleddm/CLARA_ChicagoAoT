@@ -12,8 +12,9 @@ from .utilities import config
 from .utilities import sen_meta
 from .utilities import returnUnixTime
 from .utilities import provideGuidance
+from .utilities import logger
 #from . import utilities
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 author= 'DeMedeiros, Kyle D'
 magic_number = 42
 #DEFAULT_CONFIG='./config.json'

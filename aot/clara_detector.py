@@ -5,6 +5,7 @@ import time
 from typing import Dict, List, Tuple, Any, Optional
 import torch
 import utilities as util
+from utilities import logger
 import sys
 import traceback
 from clara.faiss_vector_store import FAISSVectorStore
@@ -21,7 +22,8 @@ class CLARA:
             # llm_api_base: base url for ollama api           
             # embedding_dim: dimensionality of the embedding vectors            
             # semantic_threshold: threshold for semantic pattern matching            
-            # coherence_threshold: threshold for explanation coherence            
+            # coherence_threshold: threshold for explanation coherence
+        self.log_file=arguments.output_dir+"log.txt"            
         self.llm = OllamaLLM(
             model_name=llm_model_name,
             api_base=llm_api_base
@@ -58,7 +60,6 @@ class CLARA:
                 unixVal=util.returnUnixTime(value)
                 features.append(unixVal)
             elif key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(value, (int, float)):
-            #if key not in ['user_id', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
                 features.append(float(value))
             elif key not in meta_keys['ids'] and key not in meta_keys['labels'] and  not isinstance(value, (int, float)):
                 try:
@@ -66,7 +67,7 @@ class CLARA:
                 except ValueError:
                     try:
                         # Handle invalid numeric strings
-                        print(f"Error: '{value}' is not a valid number.  Attempting to convert to usable format...")
+                        logger(self.log_file,f"Error: '{value}' is not a valid number.  Attempting to convert to usable format...")
                         parts = [p.strip() for p in value.split(",") if p.strip() != ""]
                         numbers = []
                         for p in parts:
@@ -92,7 +93,7 @@ class CLARA:
                         #feature_vector=[item for sublist in feature_vector for item in sublist]#this is breaking.  It's not flattening  FIX THIS!!
                         #print(f'flattened feature vector {feature_vector}\n')
                     except Exception as e:
-                        print(f'despite best efforts, {key}:{value} cannot have its value parameter converted.  Discarding..\n')#likely related to ID values
+                        logger(self.log_file,f'despite best efforts, {key}:{value} cannot have its value parameter converted.  Discarding..\n')#likely related to ID values
                         traceback.print_exc()
                         #sys.exit(-1)#unknown error
                         features=[]
@@ -105,7 +106,7 @@ class CLARA:
     def _create_embedding(self, sensor_data: Dict[str, Any]) -> np.ndarray:
         
         features = self._sensor_to_features(sensor_data)
-        print(f'generating embedding from {features}')
+        logger(self.log_file,f'generating embedding from {features}')
         #print(f"Feature shape: {features.shape}")
         # if we have a trained embedding model, use it       
         if self.embedding_model:
@@ -126,7 +127,7 @@ class CLARA:
                 
                 
                 if embedding.shape[1] != self.embedding_dim:
-                    print(f"WARNING: Embedding dimension mismatch. Expected {self.embedding_dim}, got {embedding.shape[1]}. Adjusting...")
+                    logger(self.log_file,f"WARNING: Embedding dimension mismatch. Expected {self.embedding_dim}, got {embedding.shape[1]}. Adjusting...")
                     if embedding.shape[1] > self.embedding_dim:
                         embedding = embedding[:, :self.embedding_dim]
                     else:
@@ -136,8 +137,9 @@ class CLARA:
                 
                 return embedding.astype(np.float32)
             except Exception as e:
-                print(f"Error using embedding model: {e}")
-                print("Falling back to simple embedding")
+                logger(self.log_file,f"Error using embedding model: {e}")
+                logger(self.log_file,"Falling back to simple embedding")
+                logger(self.log_file,traceback.print_exc())
                 traceback.print_exc()
                 sys.exit('embedding error')
         
@@ -162,14 +164,13 @@ class CLARA:
             feature_vector = self._sensor_to_features(data)
             features.append(feature_vector)
             metadata,text2,meta_keys=util.extract_metadata(data, self.args)
-            #activity = data.get('activity', 'unknown')
             for label in metadata['labels']:
                 labels.append(hash(label) % 100)  
         features_array = np.array(features, dtype=np.float32)
         labels_array = np.array(labels, dtype=np.int64)
         
         print(f"Training contrastive embedding model on {len(features)} samples...")
-        
+        logger(self.log_file,f"Training contrastive embedding model on {len(features)} samples...")
         # use contrastive learning to train the embedding model        
         self.embedding_model, _ = generate_sensor_embeddings_with_contrastive_learning(
             feature_vectors=features_array,
@@ -190,18 +191,8 @@ class CLARA:
         metadata,text2,meta_keys=util.extract_metadata(sensor_data, self.args)
         metadata['is_anomaly']=False
         metadata['description']=description or 'Normal sensor pattern'
-        # prepare metadata        
-        #metadata = {
-        #    "hostID": sensor_data.get("hostID", "unknown"),
-        #    "activity": sensor_data.get("activity", "unknown"),
-        #    "timestamp": sensor_data.get("timestamp", ""),
-        #    "is_anomaly": False,
-        #    "description": description or "Normal sensor pattern"
-        #}
-        
         # add sensor readings to metadata for comparison        
         for key, value in sensor_data.items():
-            #if key not in ['hostID', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
             if key in meta_keys['values'] and isinstance(value, (int, float)):
                 metadata[key] = value
             if key in meta_keys['timestamps']:
@@ -236,22 +227,8 @@ class CLARA:
         metadata['is_anomaly']=True
         metadata['anomaly_type']=anomaly_type
         metadata["explanation"]=explanation
-        #metadata = {
-        #    "hostID": sensor_data.get("hostID", "unknown"),
-        #    "activity": sensor_data.get("activity", "unknown"),
-        #    "timestamp": sensor_data.get("timestamp", ""),
-        #    "is_anomaly": True,
-        #    "anomaly_type": anomaly_type,
-        #    "explanation": explanation
-        #}
-        
-        # include sensor readings to metadata for comparison        
-        #for key, value in sensor_data.items():
-        #    if key not in ['hostID', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
-        #        metadata[key] = value
-                # add sensor readings to metadata for comparison        
+        # add sensor readings to metadata for comparison        
         for key, value in sensor_data.items():
-            #if key not in ['hostID', 'activity', 'timestamp', 'uuid'] and isinstance(value, (int, float)):
             if key in meta_keys['values'] and isinstance(value, (int, float)):
                 metadata[key] = value
             if key in meta_keys['timestamps']:
@@ -295,10 +272,10 @@ class CLARA:
             #print(f'RETREIVED DISTANCES!!: {distances}\n')
             #print(f'RETREIVED METADATA!!: {metadata}\n')
             
-            print('Testing what comes out of the FAISS search:\n')
+            logger(self.log_file,'Testing what comes out of the FAISS search:\n')
             test_dist, test_meta=self.vector_store.search(query_embedding, k)
             #print(f'RETREIVED TEST DISTANCES!!: {test_dist}\n')
-            print(f'RETREIVED TEST METADATA!!: {test_meta}\n')
+            logger(self.log_file,f'RETREIVED TEST METADATA!!: {test_meta}\n')
             #NOTE: Despite there being a similar pattern here, it's not showing up.  Need to review!
             # if not enough results, do a general search            
             if len([d for d in distances if d != float('inf')]) < k // 2:
@@ -436,7 +413,7 @@ class CLARA:
         
         # if we can't use the llm, fall back to rule-based analysis        
         if not use_llm:
-            print('LLM NOT USED!  Falling back to rules-based analysis')
+            logger(self.log_file,'LLM NOT USED!  Falling back to rules-based analysis')
             return self._rule_based_analysis(sensor_data, retrieved_patterns, 
                                             semantic_anomaly, metrics)
         
@@ -446,10 +423,6 @@ class CLARA:
         for key, value in sensor_data.items():
             if key in meta_keys['ids'] or key in meta_keys['labels']:
                   context[key]=sensor_data.get(key,'unknown')
-        #context = {
-        #    "hostID": sensor_data.get("hostID", "unknown"),
-        #    "activity": sensor_data.get("activity", "unknown")
-        #}
         
         ctx_anomaly_score, ctx_explanation = self.deviation_analyzer.analyze(
             sensor_data, 
@@ -550,12 +523,6 @@ class CLARA:
             "notable_deviations": notable_deviations,
             "recommended_actions": recommended_actions,
             "similar_patterns": []
-                #{
-                #    "distance": p.get("distance", float("inf")),
-                #    "is_anomaly": p.get("is_anomaly", False),
-                #    "activity": p.get("activity", "unknown"),
-                #    "description": p.get("description", "") or p.get("explanation", "")
-                #}]     
         }
         for p in retrieved_patterns[:3]:# include only top 3 for testing purposes
             #print(f'P!!!!: {p}')            
@@ -624,15 +591,7 @@ class CLARA:
             "confidence": max(0.1, min(0.9, confidence)),
             "anomaly_type": anomaly_type if is_anomaly else None,
             "explanation": explanation,
-            "similar_patterns": [
-                #{
-                #    "distance": p.get("distance", float("inf")),
-                #    "is_anomaly": p.get("is_anomaly", False),
-                #    "activity": p.get("activity", "unknown"),
-                #    "description": p.get("description", "") or p.get("explanation", "")
-                #}
-                #for p in retrieved_patterns[:3]           
-                ]
+            "similar_patterns": []
         }
         for p in retrieved_patterns[:3]:# include only top 3 for testing purposes            
             sim_pat={}
@@ -649,73 +608,3 @@ class CLARA:
             vector_store_path: path to save the faiss index
         """
         self.vector_store.save(vector_store_path)
-
-def nullFunc():
-    if __name__ == "__main__": 
-        clara = CLARA()
-        
-        # create some sample data    
-        normal_pattern = {
-            "user_id": "user123",
-            "activity": "walking",
-            "timestamp": "2023-01-01T12:00:00",
-            "acc_x": 0.1,
-            "acc_y": 9.8,
-            "acc_z": 0.2,
-            "gyro_x": 0.01,
-            "gyro_y": 0.02,
-            "gyro_z": 0.01
-        }
-        
-        anomaly_pattern = {
-            "user_id": "user123",
-            "activity": "walking",
-            "timestamp": "2023-01-02T15:30:00",
-            "acc_x": 0.5,
-            "acc_y": 8.5,
-            "acc_z": 0.9,
-            "gyro_x": 0.12,
-            "gyro_y": 0.22,
-            "gyro_z": 0.11
-        }
-        
-        # add patterns to the database    
-        clara.add_normal_pattern(normal_pattern, "Normal walking pattern")
-        clara.add_anomaly_pattern(
-            anomaly_pattern,
-            "behavioral",
-            "Irregular walking pattern with unusual acceleration"
-        )
-        
-        # test pattern - mix of normal and anomaly    
-        test_pattern = {
-            "user_id": "user123",
-            "activity": "walking",
-            "timestamp": "2023-01-03T10:15:00",
-            "acc_x": 0.3,
-            "acc_y": 9.0,
-            "acc_z": 0.5,
-            "gyro_x": 0.08,
-            "gyro_y": 0.15,
-            "gyro_z": 0.07
-        }
-        
-        # detect anomalies    
-        print("Testing with LLM:")
-        try:
-            result = clara.detect_anomalies(test_pattern, use_llm=True)
-            print(f"Is anomaly: {result['is_anomaly']}")
-            print(f"Confidence: {result['confidence']:.2f}")
-            print(f"Anomaly type: {result['anomaly_type']}")
-            print(f"Explanation: {result['explanation']}")
-        except Exception as e:
-            print(f"LLM-based detection failed: {e}")
-            print("Falling back to rule-based analysis...")
-        
-        print("\nTesting with rule-based analysis:")
-        result = clara.detect_anomalies(test_pattern, use_llm=False)
-        print(f"Is anomaly: {result['is_anomaly']}")
-        print(f"Confidence: {result['confidence']:.2f}")
-        print(f"Anomaly type: {result['anomaly_type']}")
-        print(f"Explanation: {result['explanation']}")
-    return None

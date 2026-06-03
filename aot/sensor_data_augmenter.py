@@ -2,13 +2,14 @@ import json
 import numpy as np
 from typing import Dict, List, Tuple, Any, Optional
 import utilities as util
-
+from utilities import logger
 class SensorDataAugmenter:
     
     def __init__(self, args, max_token_limit: int = 2048):
 
         self.max_token_limit = max_token_limit
         self.args=args
+        self.log_file=self.args.output_dir+"log.txt"
     
     def sensor_to_text(self, sensor_data: Dict[str, Any]) -> str:
 
@@ -32,40 +33,12 @@ class SensorDataAugmenter:
                 text += f'\n{group_name.upper()} SENSORS:\n'
                 for sensor_name, value in sensors:
                     text += f'- {sensor_name}: {value}\n'
-        print(f"Sensor To Text: {text}")
+        logger(self.log_file,f"SDA-Sensor To Text: {text}")
         return text
     
     def _group_sensors(self, sensor_data: Dict[str, Any]) -> Dict[str, List[Tuple[str, float]]]:
         metadata,text2,meta_keys=util.extract_metadata(sensor_data,self.args)
         sensor_groups=util.extractSensorType(sensor_data)
-        #sensor_groups = {
-        #    'accelerometer': [],
-        #    'gyroscope': [],
-        #    'magnetometer': [],
-        #    'location': [],
-        #    'other': []
-        #}
-        
-        #for key, value in sensor_data.items():
-        #    # skip metadata fields            
-        #    if key in ['hostID', 'activity', 'timestamp', 'uuid']:
-        #        continue
-        #    
-        #    # skip non-numeric values            
-        #    if not isinstance(value, (int, float)):
-        #        continue
-        #    
-        #    # categorize by sensor type            
-        #    if 'acc' in key.lower():
-        #        sensor_groups['accelerometer'].append((key, value))
-        #    elif 'gyro' in key.lower() or 'rot' in key.lower():
-        #        sensor_groups['gyroscope'].append((key, value))
-        #    elif 'mag' in key.lower():
-        #        sensor_groups['magnetometer'].append((key, value))
-        #    elif 'lat' in key.lower() or 'lon' in key.lower() or 'gps' in key.lower():
-        #        sensor_groups['location'].append((key, value))
-        #    else:
-        #        sensor_groups['other'].append((key, value))
         
         # remove empty groups        
         return {k: v for k, v in sensor_groups.items() if v}
@@ -101,7 +74,7 @@ class SensorDataAugmenter:
             if description:
                 text += f"- Description: {description}\n"
             text += "\n"
-        
+        logger(self.log_file,f"SDA-Context to text:{text}")
         return text
     
     def generate_guidance(self, sensor_data: Dict[str, Any], 
@@ -134,7 +107,7 @@ class SensorDataAugmenter:
             guidance += "Focus on detecting deviations from the normal patterns.\n"
         
         guidance+=util.provideGuidance(metadata)
-        
+        logger(self.log_file,f"SDA-Guidance:{guidance}")
         return guidance
     
     def highlight_patterns(self, sensor_data: Dict[str, Any], 
@@ -178,7 +151,7 @@ class SensorDataAugmenter:
             explanation = closest_anomaly.get('explanation', '') or closest_anomaly.get('description', '')
             if explanation:
                 highlights += f"- Description: {explanation}\n"
-        
+        logger(self.log_file,f"SDA- Highlights:{highlights}")
         return highlights
     
     def augment_sensor_data(self, sensor_data: Dict[str, Any], 
@@ -217,62 +190,5 @@ class SensorDataAugmenter:
                 - "notable_deviations": List of specific sensors with unusual readings
                 - "recommended_actions": Suggestions for addressing the anomaly
                 """
-        
+        logger(self.log_file,f"SDA-Augmentation of prompt:{prompt}")
         return prompt
-
-
-def nullFunc():
-    if __name__ == "__main__":
-        # create a sample sensor data    
-        sensor_data = {
-            "user_id": "user123",
-            "activity": "walking",
-            "timestamp": "2023-01-01T12:00:00",
-            "acc_x": 0.5,
-            "acc_y": 8.5,
-            "acc_z": 0.9,
-            "gyro_x": 0.12,
-            "gyro_y": 0.22,
-            "gyro_z": 0.11
-        }
-        
-        # sample retrieved context    
-        retrieved_context = [
-            {
-                "distance": 0.2,
-                "is_anomaly": False,
-                "activity": "walking",
-                "description": "Normal walking pattern with regular gait",
-                "acc_x": 0.1,
-                "acc_y": 9.8,
-                "acc_z": 0.2,
-                "gyro_x": 0.01,
-                "gyro_y": 0.02,
-                "gyro_z": 0.01
-            },
-            {
-                "distance": 0.8,
-                "is_anomaly": True,
-                "activity": "walking",
-                "anomaly_type": "behavioral",
-                "explanation": "Irregular walking pattern showing unusual acceleration",
-                "acc_x": 0.4,
-                "acc_y": 8.7,
-                "acc_z": 0.7,
-                "gyro_x": 0.10,
-                "gyro_y": 0.20,
-                "gyro_z": 0.10
-            }
-        ]
-        
-        # instantiate the augmenter    
-        augmenter = SensorDataAugmenter()
-        
-        # augment the data    
-        augmented_prompt = augmenter.augment_sensor_data(sensor_data, retrieved_context)
-        
-        # print the result    
-        print("Generated Prompt for LLM:")
-        print("-" * 80)
-        print(augmented_prompt)
-    return None

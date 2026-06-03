@@ -1,6 +1,7 @@
 import json
 from typing import Dict, List, Tuple, Any, Optional
 import utilities as util
+from utilities import logger
 ##2025DEC04##
 #The index might be present in this code.  Verify, then remove before ingestion.  Also check syntax.  Output still says "user" and "performed".  This needs to be removed.
 
@@ -11,6 +12,7 @@ class ExplanationDrivenDetector:
         self.llm = llm_client
         self.coherence_threshold = coherence_threshold
         self.args=args
+        self.log_file=self.args.output_dir+"log.txt"
     
     # this is where the sensor readings and metadata are needed to get textual representation of the pattern    
     def pattern_to_text(self, pattern: Dict[str, Any]) -> str:
@@ -49,6 +51,7 @@ class ExplanationDrivenDetector:
                 for name, value in sensors:
                     text += f"- {name}: {value:.4f}\n"
         
+        logger(self.log_file,f"EDD-Pattern To Text:{text}")
         return text
     
     def context_to_text(self, retrieved_context: List[Dict[str, Any]]) -> str:
@@ -129,7 +132,7 @@ class ExplanationDrivenDetector:
             explanation = closest_anomaly.get('explanation', '')
             if explanation:
                 text += f"- Explanation: {explanation}\n"
-        
+        logger(self.log_file,f"EDD-Context To Text:{text}")
         return text
     
     def construct_explain_prompt(self, pattern_text: str, context_text: str) -> str:
@@ -165,6 +168,7 @@ class ExplanationDrivenDetector:
 
         Format your entire response as a valid JSON object.
         """
+        logger(self.log_file,f"EDD-Explain Prompt: {prompt}")
         return prompt
     
     def evaluate_coherence(self, explanation: str, pattern: Dict[str, Any], retrieved_context: List[Dict[str, Any]]) -> float:
@@ -191,7 +195,7 @@ class ExplanationDrivenDetector:
         #['node_id', 'subsystem','sensor','parameter']
         for key in pattern:
             if key not in meta_keys['ids'] and key not in meta_keys['labels'] and isinstance(pattern[key], (int, float)):
-                print(f'EXPLANATION!!: {explanation}')
+                #print(f'EXPLANATION!!: {explanation}')
                 if isinstance(explanation,dict):
                     if key in explanation['explanation'].lower():
                         sensor_refs += 1
@@ -235,8 +239,10 @@ class ExplanationDrivenDetector:
         # score based on comparisons (max 1.0)        
         coherence_score += min(1.0, comparison_count / 3.0)
         
-        # normalize to 0-1 range        
-        return coherence_score / max_score
+        # normalize to 0-1 range
+        result=coherence_score / max_score
+        logger(self.log_file,"EDD-Evaluate Coherence:{result}")  
+        return result
     
     def detect(self, 
               pattern: Dict[str, Any],
@@ -266,7 +272,7 @@ class ExplanationDrivenDetector:
         
         # get llm analysis         
         llm_response = self.llm.generate(prompt)
-        
+        logger(self.log_file,f"EDD-LLM Response:{llm_response}")
         # parse llm response        
         try:
             result = json.loads(llm_response)
@@ -311,82 +317,7 @@ class ExplanationDrivenDetector:
             # reject detection if explanation incoherent            
             is_anomaly = False
             confidence = confidence * coherence
-        
+        logger(self.log_file,f"EDD-Detector anomaly determination:{is_anomaly}")
+        logger(self.log_file,f"EDD-Detector confidence:{confidence}")
+        logger(self.log_file,f"EDD-Detector explaination:{explanation}")
         return is_anomaly, confidence, explanation
-
-
-def nullFunc():
-    if __name__ == "__main__":
-        # I'm just using a mock llm client for testing    
-        class MockLLM:
-            def generate(self, prompt):
-                # simulate llm response            
-                return json.dumps({
-                    "is_anomaly": True,
-                    "confidence": 0.85,
-                    "explanation": "The current pattern shows significant deviations in accelerometer readings compared to normal walking patterns. The acc_y value of 8.5 is much lower than the expected 9.8 (gravity), and acc_x and acc_z values (0.5 and 0.9) are higher than usual (typically around 0.1-0.2).",
-                    "user_friendly_message": "Your walking pattern looks unusual. The way you're holding or moving with your phone is different from your normal walking.",
-                    "notable_deviations": [
-                        "Accelerometer y-axis is 13% lower than normal",
-                        "Accelerometer x-axis is 5x higher than normal",
-                        "Accelerometer z-axis is 4.5x higher than normal"
-                    ],
-                    "recommended_actions": [
-                        "Check if phone position has changed",
-                        "Verify if walking surface is different",
-                        "Monitor for consistent pattern changes"
-                    ]
-                })
-        
-        # create sample data    
-        pattern = {
-            "user_id": "user123",
-            "activity": "walking",
-            "timestamp": "2023-01-01T12:00:00",
-            "acc_x": 0.5,
-            "acc_y": 8.5,
-            "acc_z": 0.9,
-            "gyro_x": 0.12,
-            "gyro_y": 0.22,
-            "gyro_z": 0.11
-        }
-        
-        retrieved_context = [
-            {
-                "distance": 0.2,
-                "is_anomaly": False,
-                "activity": "walking",
-                "description": "Normal walking pattern with regular gait",
-                "acc_x": 0.1,
-                "acc_y": 9.8,
-                "acc_z": 0.2,
-                "gyro_x": 0.01,
-                "gyro_y": 0.02,
-                "gyro_z": 0.01
-            },
-            {
-                "distance": 0.8,
-                "is_anomaly": True,
-                "activity": "walking",
-                "anomaly_type": "behavioral",
-                "explanation": "Irregular walking pattern showing unusual acceleration",
-                "acc_x": 0.4,
-                "acc_y": 8.7,
-                "acc_z": 0.7,
-                "gyro_x": 0.10,
-                "gyro_y": 0.20,
-                "gyro_z": 0.10
-            }
-        ]
-        
-        # initialize detector with mock llm    
-        detector = ExplanationDrivenDetector(MockLLM())
-        
-        # perform detection    
-        is_anomaly, confidence, explanation = detector.detect(pattern, retrieved_context)
-        
-        print("Explanation-Driven Detection Result:")
-        print(f"Is Anomaly: {is_anomaly}")
-        print(f"Confidence: {confidence:.4f}")
-        print(f"Explanation:\n{explanation}")
-    return None

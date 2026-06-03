@@ -5,6 +5,7 @@
     "model":"llama3.2:1b",
     "api_base": "http://127.0.0.1:11434",
     "api_base_old": "http://10.10.170.74:11434",
+    "output_dir":"./output/clara_aot/",
     "vector_store":"./output/clara_aot/aot_vector_store.faiss",
     "feedback_log": "./output/clara_aot/feedback_log.json",
     "threshold":0.7,

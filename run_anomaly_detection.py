@@ -17,8 +17,9 @@ from aot.contextual_deviation_analyzer import ContextualDeviationAnalyzer
 from aot.explanation_driven_detector import ExplanationDrivenDetector
 from utilities import pruneTime
 from utilities import parse_json_args
+from utilities import logger
 from datetime import datetime
-
+import io
 # constants
 DEFAULT_CSV_PATH = "/mnt/e/input/chicago_aot/big2018-03-30_00.36.46.csv"#"/mnt/e/input/clara/no_watch_data_imputed_replaced_cleaned.csv"#"/home/ai-lab2/GAIN-Pytorch-master/data/no_watch_data_imputed_replaced_cleaned.csv"
 DEFAULT_MODEL = "llama3.2:1b"
@@ -26,11 +27,11 @@ DEFAULT_API_BASE = "http://localhost:11434"
 DEFAULT_VECTOR_STORE = "vector_store.faiss"
 DEFAULT_FEEDBACK_LOG = "feedback_log.json"
 DEFAULT_CONFIG_PATH="./config.json"
-
+buf=io.StringIO()
 
 def initialize_detector(args):
     
-    print(f"Initializing CLARA anomaly detector with {args.model}...")
+    logger(args.output_dir+"log.txt",f"Initializing CLARA anomaly detector with {args.model}...",to_screen=True)
     
     # use a smaller embedding dimension for better performance (make sure to change this if you want to constrain your sensor data in a different way)
     embedding_dim = args.embedding_dim
@@ -43,7 +44,7 @@ def initialize_detector(args):
 
 def initialize_feedback_loop(detector, args):
     
-    print(f"Initializing feedback loop manager...")
+    logger(args.output_dir+"log.txt",f"Initializing feedback loop manager...",to_screen=True)
     
     # create the feedback loop manager    
     feedback_loop = FeedbackLoopManager(
@@ -58,10 +59,10 @@ def initialize_feedback_loop(detector, args):
 def load_training_data(detector, args):
     # load dataset    
     if args.skip_training:
-        print("Skipping training data loading as requested.")
+        logger(args.output_dir+"log.txt","Skipping training data loading as requested.",to_screen=True)
         return
     
-    print(f"Loading training data from {args.csv_path}...")
+    logger(args.output_dir+"log.txt",f"Loading training data from {args.csv_path}...",to_screen=True)
     # use csv loader   #this needs to be generalized to load any csv data KDM 2025NOV21 
     csv_loader = AotCSVLoader(args)#(args.csv_path)
     
@@ -69,27 +70,31 @@ def load_training_data(detector, args):
     nodes = csv_loader.get_available_nodes()
     paramInfo=csv_loader.load_parameter_units(args.data_units_file)
     if not nodes:
-        print("No nodes found in the dataset. Using synthetic data.")
-        data = {"synthetic_node": csv_loader.generate_synthetic_data(args.max_samples)}
+        logger(args.output_dir+"log.txt",'no data present.  exiting...',to_screen=True)
+        sys.exit(-5)#no data
+        #print("No nodes found in the dataset. Using synthetic data.")
+        #data = {"synthetic_node": csv_loader.generate_synthetic_data(args.max_samples)}
     else:
         data = {}
         for node_id in nodes:#[:3]:  # limit to first 3 nodes.  why?  KDM 2025NOV21            
             node_data = csv_loader.load_node_data(node_id, max_samples=args.max_samples)
             if node_data:
                 data[node_id] = node_data
-                print(f"Loaded {len(node_data)} samples for node {node_id}")
+                logger(args.output_dir+"log.txt",f"Loaded {len(node_data)} samples for node {node_id}")
         
         if not data:
-            print("No valid data found in the dataset. Using synthetic data.")
-            data = {"synthetic_node": csv_loader.generate_synthetic_data(args.max_samples)}
+            logger(args.output_dir+"log.txt","No valid data found in the dataset. exiting...",to_screen=True)
+            #print("No valid data found in the dataset. Using synthetic data.")
+            #data = {"synthetic_node": csv_loader.generate_synthetic_data(args.max_samples)}
+            sys.exit(-5)#no data
     
     # count total samples    
     total_samples = sum(len(samples) for samples in data.values())
-    print(f"Loaded {total_samples} samples across {len(data)} nodes")
+    logger(args.output_dir+"log.txt",f"Loaded {total_samples} samples across {len(data)} nodes",to_screen=True)
     
     # train embedding model using contrastive learning if enough data    
     if total_samples >= 10 and args.train_embeddings:
-        print("Training contrastive embedding model...")
+        logger(args.output_dir+"log.txt","Training contrastive embedding model...",to_screen=True)
         try:
             # prepare data for embedding training            
             all_samples = []
@@ -113,35 +118,37 @@ def load_training_data(detector, args):
                         except ValueError:
                             try:
                                 # Handle invalid numeric strings
-                                print(f"Error: '{sample['value']}' is not a valid number.  Attempting to convert to usable format...")
+                                logger(args.output_dir+"log.txt",f"Error: '{sample['value']}' is not a valid number.  Attempting to convert to usable format...")
                                 parts = [p.strip() for p in sample['value'].split(",") if p.strip() != ""]
                                 numbers = []
                                 for p in parts:
                                     try:
-                                        print(f'Attempting conversion of {p} to a number...\n')
+                                        logger(args.output_dir+"log.txt",f'Attempting conversion of {p} to a number...\n')
                                         # Try integer conversion first
                                         if '.' not in p and 'e' not in p.lower():
                                             numbers.append(int(p))
-                                            print(f'{type(int(p))} {p}\n')
+                                            logger(args.output_dir+"log.txt",f'{type(int(p))} {p}\n')
                                         else:
                                         # Otherwise, try float conversion
                                             numbers.append(float(p))
-                                            print(f'{type(float(p))} {p}\n')
+                                            logger(args.output_dir+"log.txt",f'{type(float(p))} {p}\n')
                                     except Exception as e:
                                         if type(e) is ValueError:
                                             raise ValueError(f"Invalid number: '{p}'")
                                         else:
-                                            traceback.print_exc()
+                                            traceback.print_exc(file=buf)
+                                            logger(args.output_dir+"log.txt",buf.getvalue(),to_screen=True)
                                             sys.exit(-1)#unknown error
-                                print(f'timestamp component: {timStp}, Sample Value Component: {numbers}')
+                                logger(args.output_dir+"log.txt",f'timestamp component: {timStp}, Sample Value Component: {numbers}')
                                 feature_vector=[]
                                 feature_vector=[timStp]+numbers
-                                print(f'current feature vector {feature_vector}\n')
+                                logger(args.output_dir+"log.txt",f'current feature vector {feature_vector}\n')
                                 #feature_vector=[item for sublist in feature_vector for item in sublist]#this is breaking.  It's not flattening  FIX THIS!!
                                 #print(f'flattened feature vector {feature_vector}\n')
                             except Exception as e:
-                                print(f'despite best efforts sample {sample} cannot have its value parameter converted.  Discarding sample\n')#likely related to ID values
-                                traceback.print_exc()
+                                logger(args.output_dir+"log.txt",f'despite best efforts sample {sample} cannot have its value parameter converted.  Discarding sample\n')#likely related to ID values
+                                traceback.print_exc(file=buf)
+                                logger(args.output_dir+"log.txt",buf.getvalue(),to_screen=True)
                                 #sys.exit(-1)#unknown error
                                 feature_vector=[]
 
@@ -158,7 +165,7 @@ def load_training_data(detector, args):
                         param=hash(sample['parameter']) % 100
                         labels.append([subsys,sen,param])
                 except Exception as e:
-                    print(f"Error loading feature vector: {e}.  Proceed with caution")
+                    logger(args.output_dir+"log.txt",f"Error loading feature vector: {e}.  Proceed with caution",to_screen=True)
                     #traceback.print_exc()
                     #if type(e) is TypeError:
                     #    sys.exit(-2)#-2 is type error
@@ -171,13 +178,6 @@ def load_training_data(detector, args):
             #    for key, value in sorted(sample.items()):
             #        if key not in ['node_id', 'timestamp', 'subsystem' ,'sensor', 'parameter'] and isinstance(value, (int, float)):
             #            feature_vector.append(float(value))
-            #    
-            #    if feature_vector:
-            #        features.append(feature_vector)
-            #        # use activity as label                    
-            #        activity = sample.get('activity', 'unknown')
-            #        labels.append(hash(activity) % 100)  # simple hash to convert activity to numeric label            
-            # pad features to same length if needed            
             max_length = max(len(f) for f in features)
             padded_features = []
             for f in features:
@@ -208,18 +208,20 @@ def load_training_data(detector, args):
             
             # use the trained model            
             detector.embedding_model = model
-            print(f'Successfully trained embedding model!  embedding list shape shape {embeddings.shape}\n')
+            logger(args.output_dir+"log.txt",f'Successfully trained embedding model!',to_screen=True)
+            logger(args.output_dir+"log.txt",f"embedding list shape {embeddings.shape}")
         except Exception as e:
-            print(f"Error training embedding model: {e}")
-            print("Using default embedding approach instead.")
-            traceback.print_exc()
+            logger(args.output_dir+"log.txt",f"Error training embedding model: {e}",to_screen=True)
+            logger(args.output_dir+"log.txt","Using default embedding approach instead.",to_screen=True)
+            traceback.print_exc(file=buf)
+            logger(args.output_dir+"log.txt",buf.getvalue(),to_screen=True)
     
     # add to vector store    
     patterns_added = 0
     anomalies_added = 0
     
     for node_id, samples in data.items():
-        print(f"Processing data for node {node_id}...")
+        logger(args.output_dir+"log.txt",f"Processing data for node {node_id}...")
         
         # reserve some samples for anomalies (approximately 10%)        
         num_anomalies = max(1, int(len(samples) * 0.1))
@@ -230,16 +232,16 @@ def load_training_data(detector, args):
         for i, sample in enumerate(normal_samples):
             #print(f'NORMAL SAMPLE INFO!!: {samples}\n')
             if i % 10 == 0:
-                print(f"  Added {i}/{len(normal_samples)} normal patterns...", end="\r")
+                logger(args.output_dir+"log.txt",f"  Added {i}/{len(normal_samples)} normal patterns...", end="\r")
             
-            print(f'sample: {sample}')
+            logger(args.output_dir+"log.txt",f'sample: {sample}')
             detector.add_normal_pattern(
                 sample,
                 description=f"Normal pattern for node {node_id} with {sample.get('subsystem', 'unknownwn subsystem')}, {sample.get('sensor', 'unknownwn sensor')}, {sample.get('parameter', 'unknownwn parameter')}"
             )
             patterns_added += 1
         
-        print(f"  Added {len(normal_samples)}/{len(normal_samples)} normal patterns.")
+        logger(args.output_dir+"log.txt",f"  Added {len(normal_samples)}/{len(normal_samples)} normal patterns.")
         
         # add anomaly patterns        
         for i, sample in enumerate(anomaly_samples):
@@ -260,16 +262,16 @@ def load_training_data(detector, args):
             )
             anomalies_added += 1
     
-    print(f"Added {patterns_added} normal patterns and {anomalies_added} anomalies to the vector store")
+    logger(args.output_dir+"log.txt",f"Added {patterns_added} normal patterns and {anomalies_added} anomalies to the vector store",to_screen=True)
     
     # save the vector store    
     detector.save(args.vector_store)
-    print(f"Saved vector store to {args.vector_store}")
+    logger(args.output_dir+"log.txt",f"Saved vector store to {args.vector_store}",to_screen=True)
 
 
 def run_detection_demo(detector, feedback_loop, args):
     
-    print("\nRunning anomaly detection demonstration...")
+    logger(args.output_dir+"log.txt","Running anomaly detection demonstration...",to_screen=True)
     
     # load test data (a small subset)    
     csv_loader = AotCSVLoader(args)
@@ -279,16 +281,18 @@ def run_detection_demo(detector, feedback_loop, args):
     #users = csv_loader.get_available_users()
     
     if not nodes:
-        print("No nodes found in the dataset. Using synthetic test data.")
-        test_data = csv_loader.generate_synthetic_data(5)
+        logger(args.output_dir+"log.txt","No nodes found in the dataset. Exiting...",to_screen=True)
+        sys.exit(-5)#no Data
+        #test_data = csv_loader.generate_synthetic_data(5)
     else:
         # get data for the first user        
         node_id = nodes[0]
         raw_test_data = csv_loader.load_node_data(node_id, max_samples=5)
         
         if not raw_test_data:
-            print(f"No data found for node {node_id}. Using synthetic test data.")
-            test_data = csv_loader.generate_synthetic_data(5)
+            logger(args.output_dir+"log.txt",f"No data found for node {node_id}. Exiting...",to_screen=True)
+            #test_data = csv_loader.generate_synthetic_data(5)
+            sys.exit(-5)#no data
         else:
             test_data = raw_test_data
             
@@ -302,11 +306,11 @@ def run_detection_demo(detector, feedback_loop, args):
                 
                 test_data.append(anomaly_sample)
     
-    print(f"Running detection on {len(test_data)} test samples...")
+    logger(args.output_dir+"log.txt",f"Running detection on {len(test_data)} test samples...",to_screen=True)
     
     for i, sample in enumerate(test_data):
-        print(f"\nSample {i+1}/{len(test_data)}:")
-        print(f"Timestamp: {sample.get('timestamp', 'unknown')}, Node: {sample.get('node_id', 'unknown')}, Subsystem: {sample.get('subsystem', 'unknown')}, Sensor: {sample.get('sensor', 'unknown')}, Parameter: {sample.get('parameter', 'unknown')}, Value:{sample.get('value', 'unknown')}")
+        logger(args.output_dir+"log.txt",f"\nSample {i+1}/{len(test_data)}:",to_screen=True)
+        logger(args.output_dir+"log.txt",f"Timestamp: {sample.get('timestamp', 'unknown')}, Node: {sample.get('node_id', 'unknown')}, Subsystem: {sample.get('subsystem', 'unknown')}, Sensor: {sample.get('sensor', 'unknown')}, Parameter: {sample.get('parameter', 'unknown')}, Value:{sample.get('value', 'unknown')}",to_screen=True)
         
         # run detection        
         try:
@@ -318,22 +322,22 @@ def run_detection_demo(detector, feedback_loop, args):
             is_anomaly = result.get("is_anomaly", False)
             confidence = result.get("confidence", 0.0)
             
-            print(f"Detection result: {'ANOMALY' if is_anomaly else 'NORMAL'} (confidence: {confidence:.2f})")
-            print(f"Detection time: {end_time - start_time:.2f} seconds")
+            logger(args.output_dir+"log.txt",f"Detection result: {'ANOMALY' if is_anomaly else 'NORMAL'} (confidence: {confidence:.2f})",to_screen=True)
+            logger(args.output_dir+"log.txt",f"Detection time: {end_time - start_time:.2f} seconds",to_screen=True)
             
             # print human-friendly explanation            
             if "user_friendly_message" in result:
-                print("\nExplanation:")
-                print(f"  {result['user_friendly_message']}")
+                logger(args.output_dir+"log.txt","Explanation:",to_screen=True)
+                logger(args.output_dir+"log.txt",f"  {result['user_friendly_message']}",to_screen=True)
             else:
-                print("\nExplanation:")
-                print(f"  {result.get('explanation', 'No explanation available')}")
+                logger(args.output_dir+"log.txt","Explanation:",to_screen=True)
+                logger(args.output_dir+"log.txt",f"  {result.get('explanation', 'No explanation available')}",to_screen=True)
             
             # if anomaly, print additional details            
             if is_anomaly and "notable_deviations" in result:
-                print("\nNotable deviations:")
+                logger(args.output_dir+"log.txt","\nNotable deviations:",to_screen=True)
                 for deviation in result.get("notable_deviations", []):
-                    print(f"  - {deviation}")
+                    logger(args.output_dir+"log.txt",f"  - {deviation}",to_screen=True)
             
             # simulate user feedback    
                     
@@ -350,59 +354,62 @@ def run_detection_demo(detector, feedback_loop, args):
             
             # add feedback            
             feedback_entry = feedback_loop.add_feedback(sample, result, user_feedback)
-            print(f"\nAdded user feedback: {user_feedback['correct']} (ID: {feedback_entry['timestamp']})")
+            logger(args.output_dir+"log.txt",f"\nAdded user feedback: {user_feedback['correct']} (ID: {feedback_entry['timestamp']})",to_screen=True)
             
         except Exception as e:
-            print(f"Error during detection: {e}")
-            traceback.print_exc()
-            print("Trying rule-based detection instead...")
+            logger(args.output_dir+"log.txt",f"Error during detection: {e}",to_screen=True)
+            traceback.print_exc(file=buf)
+            logger(args.output_dir+"log.txt",buf.getvalue(),to_screen=True)
+            logger(args.output_dir+"log.txt","Trying rule-based detection instead...",to_screen=True)
             
             try:
                 result = detector.detect_anomalies(sample, use_llm=False)
-                print(f"Rule-based result: {'ANOMALY' if result.get('is_anomaly', False) else 'NORMAL'}")
+                logger(args.output_dir+"log.txt",f"Rule-based result: {'ANOMALY' if result.get('is_anomaly', False) else 'NORMAL'}",to_screen=True)
             except Exception as e2:
-                print(f"Rule-based detection also failed: {e2}")
+                logger(args.output_dir+"log.txt",f"Rule-based detection also failed: {e2}",to_screen=True)
     
     # process feedback    
-    print("\nProcessing collected feedback...")
+    logger(args.output_dir+"log.txt","\nProcessing collected feedback...",to_screen=True)
     results = feedback_loop.process_all_feedback()
-    print(f"Processed {results['processed']}/{results['total']} feedback entries")
+    logger(args.output_dir+"log.txt",f"Processed {results['processed']}/{results['total']} feedback entries",to_screen=True)
     
     # get feedback stats    
     stats = feedback_loop.get_feedback_stats()
-    print("\nFeedback statistics:")
+    logger(args.output_dir+"log.txt","\nFeedback statistics:",to_screen=True)
     for key, value in stats.items():
         if isinstance(value, float):
-            print(f"  {key}: {value:.2f}")
+            logger(args.output_dir+"log.txt",f"  {key}: {value:.2f}",to_screen=True)
         else:
-            print(f"  {key}: {value}")
+            logger(args.output_dir+"log.txt",f"  {key}: {value}",to_screen=True)
     
     # save updated vector store    
     detector.save(args.vector_store)
-    print(f"\nSaved updated vector store to {args.vector_store}")
+    logger(args.output_dir+"log.txt",f"\nSaved updated vector store to {args.vector_store}",to_screen=True)
     
     return test_data[-1]  # return the last (anomalous) sample for detailed analysis
 
 def analyze_sample_in_detail(detector, sample, args):
     
-    print("\nPerforming detailed analysis of sample...")
+    logger(args.output_dir+"log.txt","\nPerforming detailed analysis of sample...",to_screen=True)
     
     try:
         # 1. retrieve similar patterns        
         retrieved_patterns = detector.multi_query_retrieval(sample)
-        print(f"Found {len(retrieved_patterns)} similar patterns")
+        #print(f"Found {len(retrieved_patterns)} similar patterns")
+        logger(args.output_dir+'log.txt',f"Found {len(retrieved_patterns)} similar patterns")
         
         # 2. perform semantic pattern matching        
         semantic_anomaly, metrics = detector.semantic_pattern_matching(
             sample, retrieved_patterns, detector.semantic_threshold
         )
-        print(f"\nSemantic Pattern Matching:")
-        print(f"  Is Anomaly: {semantic_anomaly}")
-        print(f"  Reason: {metrics.get('anomaly_reason', 'None')}")
+        logger(args.output_dir+"log.txt",f"\nSemantic Pattern Matching:",to_screen=True)
+        logger(args.output_dir+"log.txt",f"  Is Anomaly: {semantic_anomaly}",to_screen=True)
+        logger(args.output_dir+"log.txt",f"  Reason: {metrics.get('anomaly_reason', 'None')}",to_screen=True)
         
         # 3. only proceed with llm-based analysis if available        
         if args.skip_llm:
-            print("\nSkipping LLM analysis as requested.")
+            #print("\nSkipping LLM analysis as requested.")
+            logger(args.output_dir+'log.txt',"Skipping LLM analysis as requested.")
             return
         
         # 4. perform sensor data augmentation        
@@ -411,9 +418,9 @@ def analyze_sample_in_detail(detector, sample, args):
         #print(f'~~~~~~TEST retreived patterns:{retrieved_patterns}\n')
         
         augmented_prompt = augmenter.augment_sensor_data(sample, retrieved_patterns)
-        print("\nAugmented Sensor Data (preview):")
+        logger(args.output_dir+"log.txt","\nAugmented Sensor Data (preview):",to_screen=True)
         
-        print(augmented_prompt[:200] + "...")
+        logger(args.output_dir+"log.txt",augmented_prompt[:200] + "...",to_screen=True)
         
         # 5. perform contextual deviation analysis        
         context = {
@@ -427,12 +434,13 @@ def analyze_sample_in_detail(detector, sample, args):
             ctx_anomaly_score, ctx_explanation = deviation_analyzer.analyze(
                 sample, context, retrieved_patterns
             )
-            print(f"\nContextual Deviation Analysis:")
-            print(f"  Anomaly Score: {ctx_anomaly_score:.4f}")
-            print(f"  Explanation: {ctx_explanation[:100]}...")
+            logger(args.output_dir+"log.txt",f"\nContextual Deviation Analysis:",to_screen=True)
+            logger(args.output_dir+"log.txt",f"  Anomaly Score: {ctx_anomaly_score:.4f}",to_screen=True)
+            logger(args.output_dir+"log.txt",f"  Explanation: {ctx_explanation[:100]}...",to_screen=True)
         except Exception as e:
-            print(f"Error in contextual deviation analysis: {e}")
-            traceback.print_exc()
+            logger(args.output_dir+"log.txt",f"Error in contextual deviation analysis: {e}",to_screen=True)
+            traceback.print_exc(file=buf)
+            logger(args.output_dir+"log.txt",buf.getvalue(),to_screen=True)
         # 6. perform explanation-driven detection        
         explanation_detector = ExplanationDrivenDetector(
             detector.llm, args,coherence_threshold=detector.coherence_threshold
@@ -441,24 +449,26 @@ def analyze_sample_in_detail(detector, sample, args):
             exp_anomaly, exp_confidence, exp_explanation = explanation_detector.detect(
                 sample, retrieved_patterns
             )
-            print(f"\nExplanation-Driven Detection:")
-            print(f"  Is Anomaly: {exp_anomaly}")
-            print(f"  Confidence: {exp_confidence:.4f}")
-            print(f"  Explanation: {exp_explanation[:100]}...")
+            logger(args.output_dir+"log.txt",f"\nExplanation-Driven Detection:",to_screen=True)
+            logger(args.output_dir+"log.txt",f"  Is Anomaly: {exp_anomaly}",to_screen=True)
+            logger(args.output_dir+"log.txt",f"  Confidence: {exp_confidence:.4f}",to_screen=True)
+            logger(args.output_dir+"log.txt",f"  Explanation: {exp_explanation[:100]}...",to_screen=True)
         except Exception as e:
-            print(f"Error in explanation-driven detection: {e}")
-            traceback.print_exc()
+            logger(args.output_dir+"log.txt",f"Error in explanation-driven detection: {e}",to_screen=True)
+            traceback.print_exc(file=buf)
+            logger(args.output_dir+"log.txt",buf.getvalue(),to_screen=True)
         # 7. run full clara detection        
         result = detector.detect_anomalies(sample, use_llm=True)
         
         # print full json result        
-        print("\nFull CLARA analysis result:")
-        print(json.dumps(result, indent=2))
+        logger(args.output_dir+"log.txt","\nFull CLARA analysis result:",to_screen=True)
+        logger(args.output_dir+"log.txt",json.dumps(result, indent=2),to_screen=True)
         
     except Exception as e:
         
-        print(f"Error during detailed analysis: {e}")
-        traceback.print_exc()
+        logger(args.output_dir+"log.txt",f"Error during detailed analysis: {e}",to_screen=True)
+        traceback.print_exc(file=buf)
+        logger(args.output_dir+"log.txt",buf.getvalue(),to_screen=True)
 
 def parse_arguments():
 
@@ -512,6 +522,8 @@ def parse_arguments():
     parser.add_argument("--contrastive-embedding-dim", type=int, default=768)
 
     parser.add_argument("--magic-number", type=int, default=42)
+
+    parser.add_argument("--output-dir", type=str, default="./")
     
     args = parser.parse_args()
     return args
@@ -537,12 +549,12 @@ def main():
     
     # reset feedback log if requested    
     if args.reset_feedback:
-        print("Resetting feedback log...")
+        logger(args.output_dir+"log.txt","Resetting feedback log...")
         feedback_loop.clear_feedback_log()
-    print(f'loading training data\n')
+    logger(args.output_dir+"log.txt",f'loading training data\n')
     # load training data    
     load_training_data(detector, args)
-    print(f'running detection demo:\n')
+    logger(args.output_dir+"log.txt",f'running detection demo:\n')
     
     #print(f'Checking arguments before detection demo: {args}\n')
     

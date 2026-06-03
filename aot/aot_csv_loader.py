@@ -4,6 +4,7 @@ import os
 import time
 from typing import Dict, List, Any, Optional, Tuple
 from operator import itemgetter
+from utilities import logger
 
 class AotCSVLoader:
     #cols: timestamp,node_id,subsystem,sensor,parameter,value_hrf
@@ -19,18 +20,20 @@ class AotCSVLoader:
         self.subsystem_def={'cs':'chemsense','ls':'lightsense','ms':'metsense','pt':'plantower'}
         self.param_def={'hum':'humidity','temp':'temperature','pres':'pressure'}
         self.data_headers={**self.subsystem_def, **self.param_def}
+        self.log_file=args.output_dir+"log.txt"
         # verify the file exists        
         if not os.path.exists(self.csv_file_path):
             print(f"Warning: CSV file not found at {self.csv_file_path}")
         else:
             try:
-                # load the file as a pandas dataframe                
-                print(f"Loading Sensor data from {self.csv_file_path}...")
+                # load the file as a pandas dataframe
+                #logger(self.log_file,f"Loading Sensor data from {self.csv_file_path}...")
+                #print(f"Loading Sensor data from {self.csv_file_path}...")
                 self.df = pd.read_csv(self.csv_file_path)
-                print(f"Successfully loaded data with {len(self.df)} rows and {len(self.df.columns)} columns\n")
+                logger(self.log_file,f"Successfully loaded data with {len(self.df)} rows and {len(self.df.columns)} columns\n")
                 #print(f"columns in data: {self.df.columns}\n")
             except Exception as e:
-                print(f"Error loading CSV file: {e}")
+                logger(self.log_file,f"Error loading CSV file: {e}")
             try:
                 self.df.rename(columns={'value_hrf':'value'},inplace=True)
                 #print(f'generalized value column: {self.df.columns}\n')
@@ -41,21 +44,21 @@ class AotCSVLoader:
                 self.df['parameter'] = self.df['parameter'].apply(lambda x: 'humidity' if x == 'hum' else ('temperature' if x=='temp' else ('pressure' if x=='pres' else(x))))
                 #print(f'expanded subsystem names: {self.df.columns}\n')
                 
-                print(f"Columns in data: {list(self.df.columns)}\n")
+                logger(self.log_file,f"Columns in data: {list(self.df.columns)}\n")
             except Exception as e:
-                print(f'Error parsing dataframe: {e}')
+                logger(self.log_file,f'Error parsing dataframe: {e}')
         return
     def load_parameter_units(self,sensorFile:str='./input/sensors.csv'):
         if not os.path.exists(sensorFile):
-            print(f"Warning: CSV file not found at {sensorFile}")
+            logger(self.log_file,f"Warning: CSV file not found at {sensorFile}")
         else:
             try:
                 # load the file as a pandas dataframe                
-                print(f"Loading Sensor info from {sensorFile}...")
+                logger(self.log_file,f"Loading Sensor info from {sensorFile}...")
                 self.param_df = pd.read_csv(sensorFile)
                 
             except Exception as e:
-                print(f"Error loading CSV file: {e}")
+                logger(self.log_file,f"Error loading CSV file: {e}")
         return self.param_def
     def get_column_names(self) -> List[str]:
         
@@ -137,7 +140,7 @@ class AotCSVLoader:
     def filter_data(self, node: str = None, subsystem: str = None, sensor:str = None, parameter:str = None, max_samples: int = None) -> List[Dict[str, Any]]:
 
         if self.df is None:
-            print("There is no data to sample!\n")
+            logger(self.log_file,"Filtering Data: There is no data to sample!\n")
             return []
         
         # apply filters        
@@ -148,22 +151,22 @@ class AotCSVLoader:
             if 'node_id' in self.df.columns:
                 filtered_df = filtered_df[filtered_df['node_id'] == node]
             else:
-                print(f'Did not find {node} in known subsystems')
+                (self.log_file,f'Filtering Data:Did not find {node} in known subsystems')
         if subsystem is not None:
             if 'subsystem' in self.df.columns:
                 filtered_df = filtered_df[filtered_df['subsystem'] == subsystem]
             else:
-                print(f'Did not find {subsystem} in known subsystems')
+                logger(self.log_file,f'Filtering Data:Did not find {subsystem} in known subsystems')
         if sensor is not None: 
             if 'sensor' in self.df.columns:
                 filtered_df = filtered_df[filtered_df['sensor'] == sensor]
             else:
-                print(f'Did not find {sensor} in known sensors')
+                logger(self.log_file,f'Filtering Data:Did not find {sensor} in known sensors')
         if parameter is not None: 
             if 'parameter' in self.df.columns:
                 filtered_df = filtered_df[filtered_df['parameter'] == sensor]
             else:
-                print(f'Did not find {parameter} in known parameters')
+                logger(self.log_file,f'Filtering Data:Did not find {parameter} in known parameters')
         
         # limit samples if specified        
         if max_samples is not None:

@@ -272,3 +272,14 @@ def closest_divisor(n: int, target: int, mode: str = "any") -> int:
 
     # Find divisor with smallest absolute difference to target
     return min(divisors, key=lambda d: abs(d - target))
+
+def logger(log_file:str, log:str,to_screen=False):
+    if to_screen:
+        print(log)
+        print('\n')
+    if log_file is not None:
+        with open(log_file, 'a') as logfil:
+            logfil.write(log)
+            logfil.write('\n')
+            logfil.close()
+    return

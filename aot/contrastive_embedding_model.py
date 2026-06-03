@@ -7,6 +7,7 @@ from typing import Dict, List, Tuple, Union, Optional, Any
 import random
 from utilities import closest_divisor
 import sys
+from utilities import logger
 
 class SensorDataset(Dataset):
 
@@ -129,7 +130,7 @@ class ContrastiveLoss(nn.Module):
         #then for the similarity, we will add each matrix together
         #NOTICE!!!!  Because the columns are NOT INDEPENDANT, a weighting for each label column is necessary (defaulted to 1 for each)!!
         #print(f'label shape!!:{labels.shape}\n') #batch_size x # labels in torch its row x col
-        print(labels[0])
+        #print(labels[0])
         if labels.shape==1:
             pos_mask = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()#this fails because you need to ONLY compare the row of a matrix with the corresponding columnof the transpose (i.e. each label's sample is compared against each other and a mask is generated)
         else:
@@ -198,7 +199,7 @@ def train_embedding_model(features: np.ndarray,
     #    print(dataset.__getitem__(i))
     # initialize model    
     input_dim = features.shape[1]
-    print(f'INPUT DIM!:{input_dim}\n')#make sure to pad the features when inferring!
+    #print(f'INPUT DIM!:{input_dim}\n')#make sure to pad the features when inferring!
     
     model = ContrastiveEmbeddingModel(input_dim, embedding_dim).to(device)
     model.input_siz=input_dim
@@ -230,7 +231,7 @@ def train_embedding_model(features: np.ndarray,
         
         # debug      
         if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(dataloader):.4f}")
+            logger('./train_log.txt',f"Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(dataloader):.4f}",to_screen=True)
     
     # final embeddings    
     model.eval()
@@ -263,41 +264,3 @@ def generate_sensor_embeddings_with_contrastive_learning(
     
     # return the trained model and final embeddings   
     return model, embeddings
-
-def nullFunc():
-    if __name__ == "__main__":
-        # generate some sample sensor data    
-        num_samples = 100
-        input_dim = 50
-        num_classes = 5
-        
-        # create random feature vectors and labels    
-        features = np.random.randn(num_samples, input_dim).astype(np.float32)
-        labels = np.random.randint(0, num_classes, size=num_samples)
-        
-        # train the contrastive embedding model    
-        print("Training contrastive embedding model...")
-        model, embeddings = generate_sensor_embeddings_with_contrastive_learning(
-            feature_vectors=features,
-            labels=labels,
-            embedding_dim=128, 
-            epochs=20,              
-            batch_size=16
-        )
-        
-        print(f"Generated embeddings with shape: {embeddings.shape}")
-        
-        # verify embeddings have captured label structure using a simple check    
-        from sklearn.neighbors import KNeighborsClassifier
-        from sklearn.model_selection import train_test_split
-        
-        X_train, X_test, y_train, y_test = train_test_split(
-            embeddings, labels, test_size=0.3, random_state=42
-        )
-        
-        knn = KNeighborsClassifier(n_neighbors=3)
-        knn.fit(X_train, y_train)
-        accuracy = knn.score(X_test, y_test)
-        
-        print(f"KNN classifier accuracy on embeddings: {accuracy:.4f}")
-    return None

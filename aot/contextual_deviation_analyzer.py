@@ -2,12 +2,13 @@ import json
 from typing import Dict, List, Tuple, Any, Optional
 import numpy as np
 import utilities as util
-
+from utilities import logger
 class ContextualDeviationAnalyzer:
     
     def __init__(self, llm_client, args):
         self.llm = llm_client
         self.args=args
+        self.log_file=self.args.output_dir+"log.txt"
     def pattern_to_text(self, pattern: Dict[str, Any]) -> str:
         metadata,text,meta_keys=util.extract_metadata(pattern, self.args)
         # extract metadata        
@@ -120,19 +121,19 @@ class ContextualDeviationAnalyzer:
 
         # convert pattern to text         
         pattern_text = self.pattern_to_text(pattern)
-        
+        logger(self.log_file,f"CDA-Pattern Text:{pattern_text}")
         # convert context to text         
         context_text = self.context_to_text(context)
-        
+        logger(self.log_file,f"CDA-Context Text:{context_text}")
         # convert retrieved patterns to text         
         retrieved_text = self.retrieved_to_text(retrieved_patterns)
-        
+        logger(self.log_file,f"CDA-Retreived Text:{retrieved_text}")
         # construct prompt         
         prompt = self.construct_prompt(pattern_text, context_text, retrieved_text)
-        
+        logger(self.log_file,f"CDA-Prompt{prompt}")
         # get llm analysis         
         llm_response = self.llm.generate(prompt)
-        
+        logger(self.log_file,f"CDA-LLM Response:{llm_response}")
         # parse llm response        
         try:
             result = json.loads(llm_response)
@@ -141,78 +142,10 @@ class ContextualDeviationAnalyzer:
         except (json.JSONDecodeError, ValueError):
             # if parsing fails, extract information using simple heuristics            
             anomaly_score = 0.5 if 'anomaly' in llm_response.lower() else 0.0
-            explanation = llm_response[:500]  # truncate to a reasonable length              
+            explanation = llm_response[:500]  # truncate to a reasonable length
+            logger(self.log_file,f"LLM RESPONSE JSON DECODE ERROR")            
         normalized_score = self.normalize_score(anomaly_score)
         
+        logger(self.log_file,f"CDA-Normalized Score:{normalized_score}")
+        logger(self.log_file,f"CDA-Reported Explanation:{explanation}")
         return normalized_score, explanation
-
-def nullFunc():    
-    if __name__ == "__main__":
-        # mock llm client for testing    
-        class MockLLM:
-            def generate(self, prompt):
-                # simulate llm response            
-                return json.dumps({
-                    "is_anomaly": True,
-                    "confidence": 0.85,
-                    "explanation": "The current pattern shows significant deviations in accelerometer readings compared to normal walking patterns. The y-axis value is much lower than expected, and x/z values are higher than usual."
-                })
-        
-        # create sample data   
-        pattern = {
-            "user_id": "user123",
-            "activity": "walking",
-            "timestamp": "2023-01-01T12:00:00",
-            "acc_x": 0.5,
-            "acc_y": 8.5,
-            "acc_z": 0.9,
-            "gyro_x": 0.12,
-            "gyro_y": 0.22,
-            "gyro_z": 0.11
-        }
-        
-        context = {
-            "user_id": "user123",
-            "activity": "walking",
-            "time_of_day": "morning",
-            "location": "home"
-        }
-        
-        retrieved_patterns = [
-            {
-                "distance": 0.2,
-                "is_anomaly": False,
-                "activity": "walking",
-                "description": "Normal walking pattern with regular gait",
-                "acc_x": 0.1,
-                "acc_y": 9.8,
-                "acc_z": 0.2,
-                "gyro_x": 0.01,
-                "gyro_y": 0.02,
-                "gyro_z": 0.01
-            },
-            {
-                "distance": 0.8,
-                "is_anomaly": True,
-                "activity": "walking",
-                "explanation": "Irregular walking pattern showing unusual acceleration",
-                "acc_x": 0.4,
-                "acc_y": 8.7,
-                "acc_z": 0.7,
-                "gyro_x": 0.10,
-                "gyro_y": 0.20,
-                "gyro_z": 0.10
-            }
-        ]
-        
-        # initialize analyzer with mock llm (I'm just using a mock llm client for testing)    
-        analyzer = ContextualDeviationAnalyzer(MockLLM())
-        
-        
-        anomaly_score, explanation = analyzer.analyze(pattern, context, retrieved_patterns)
-        
-        
-        print(f"Contextual Deviation Analysis Result:")
-        print(f"Anomaly Score: {anomaly_score:.4f}")
-        print(f"Explanation: {explanation}")
-    return None
