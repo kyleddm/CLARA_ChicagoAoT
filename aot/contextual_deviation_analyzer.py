@@ -24,10 +24,12 @@ class ContextualDeviationAnalyzer:
             #['hostID', 'activity', 'timestamp', 'uuid']
             if key in meta_keys['values'] and isinstance(value, (int, float)):
                 text += f"- {key}: {value:.4f}\n"
+            else:
+                text += f"- {key}: {value}\n"
         
         return text
     
-    def context_to_text(self, context: Dict[str, Any]) -> str:
+    def context_to_text(self, context: Dict[str, Any]) -> str: #this looks to be a redundant function now with the utility component added.
         text = f"Context:\n"
         metadata,text2,meta_keys=util.extract_metadata(context, self.args)
         #node_id = context.get('node_id', 'unknown')
@@ -39,7 +41,7 @@ class ContextualDeviationAnalyzer:
         #for key in meta_keys['labels']:
         #    text += f"- {key}: {context.get(key, 'unknown')}\n"
          #"Host {host_id} performing {activity}\n"
-        text += f"sensor reradings: \n"
+        #text += f"sensor reradings: \n"
         # add additional context information        
         for key, value in context.items():
             #not in ['hostID', 'activity']
@@ -58,15 +60,16 @@ class ContextualDeviationAnalyzer:
         # sort by similarity (distance)        
         sorted_patterns = sorted(retrieved_patterns, key=lambda x: x.get('distance', float('inf')))
         
-        for i, pattern in enumerate(sorted_patterns[:3]):  # limit to top 3 for clarity
+        for i, pattern in enumerate(sorted_patterns): 
             #metadata,text2,meta_keys=util.extract_metadata(pattern, self.args)            #Don't think this is needed here.  I think it's double-extracting
             distance = pattern.get('distance', 'unknown')
+            text += f"Pattern {i+1} (Distance: {distance:.4f}):\n"
             is_anomaly = pattern.get('is_anomaly', False)
             #activity = pattern.get('activity', 'unknown')
             for key in pattern['labels']:
                 if key.lower() != 'distance' and key.lower() != 'is_anomaly':
                     text += f"- {key}: {pattern.get(key, 'unknown '+str(key))}\n"
-            text += f"Pattern {i+1} (Distance: {distance:.4f}):\n"
+            
             #text += f"- Activity: {activity}\n"
             text += f"- Is Anomaly: {'Yes' if is_anomaly else 'No'}\n"
             
@@ -85,14 +88,14 @@ class ContextualDeviationAnalyzer:
         return text
     
     def construct_prompt(self, pattern_text: str, context_text: str, retrieved_text: str) -> str:
+        redundant_info=f"""        
+        CONTEXT INFORMATION:
+        {context_text}"""
 
         prompt = f"""Perform a contextual deviation analysis on the following sensor data.
 
-        CURRENT PATTERN:
+        CURRENT PATTERN WITH CONTEXT:
         {pattern_text}
-
-        CONTEXT INFORMATION:
-        {context_text}
 
         SIMILAR PATTERNS FROM DATABASE:
         {retrieved_text}
@@ -106,6 +109,8 @@ class ContextualDeviationAnalyzer:
         3. "explanation": a detailed explanation of your analysis, including specific deviations
 
         Format your entire response as a valid JSON object.
+
+        Remember, you are explicitly analyzing the data represented by the input pattern: {pattern_text}, using the similar reference patterns provided.  Make sure the analysis response is in reference to the input pattern and is not performed on one of the reference patterns.  If the reference patterns do not match the context provided with the input pattern, disregard them in yor analysis, but in your explaination, state which patterns were disregarded by including their ID and distance calculations.  When comparing the input pattern to the reference patterns, do not treat ID, distance, timestamp, or value keys as context labels.  If the only available reference patterns have different IDs, keep that in mind; different IDs may indicate the data is in a different location.  If the distances recorded are extremly large, disregard these patterns as well.
         """
         return prompt
     
@@ -137,13 +142,14 @@ class ContextualDeviationAnalyzer:
         # parse llm response        
         try:
             result = json.loads(llm_response)
-            anomaly_score = float(result.get('confidence', 0.5)) if result.get('is_anomaly', False) else 0.0
-            explanation = result.get('explanation', 'No explanation provided.')
+            #check the syntax here, this is an arbitrary value that seems to get set to 0 if the output is nonamonalous
+            anomaly_score = float(result.get('confidence', -999)) #if result.get('is_anomaly', False) else 0.0
+            explanation = result.get('explanation', 'No explanation provided by Contextual Deviation Analyzer.')
         except (json.JSONDecodeError, ValueError):
-            # if parsing fails, extract information using simple heuristics            
-            anomaly_score = 0.5 if 'anomaly' in llm_response.lower() else 0.0
-            explanation = llm_response[:500]  # truncate to a reasonable length
-            logger(self.log_file,f"LLM RESPONSE JSON DECODE ERROR")            
+            # if parsing fails, extract information using simple heuristics arbitrarily set confidence, but print whole response            
+            anomaly_score = -999 #if 'anomaly' in llm_response.lower() else 0.0
+            explanation = llm_response
+            logger(self.log_file,f"LLM RESPONSE JSON DECODE ERROR, SCORE ARBITRARILY SET")            
         normalized_score = self.normalize_score(anomaly_score)
         
         logger(self.log_file,f"CDA-Normalized Score:{normalized_score}")

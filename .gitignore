@@ -35,7 +35,9 @@ extrasensory_vector_store.faiss
 *.faiss
 *.pkl
 feedback_log.json
-
+input_ssd
+output_ssd
+train_log.txt
 # Local data
 *.csv
 *.tsv

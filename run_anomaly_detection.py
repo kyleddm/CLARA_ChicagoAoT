@@ -64,7 +64,7 @@ def load_training_data(detector, args):
     
     logger(args.output_dir+"log.txt",f"Loading training data from {args.csv_path}...",to_screen=True)
     # use csv loader   #this needs to be generalized to load any csv data KDM 2025NOV21 
-    csv_loader = AotCSVLoader(args)#(args.csv_path)
+    csv_loader = AotCSVLoader(args.csv_path_training,args.magic_number,args.output_dir)#(args.csv_path)
     
     # get available nodes    
     nodes = csv_loader.get_available_nodes()
@@ -105,7 +105,7 @@ def load_training_data(detector, args):
             features = []
             labels = []
             for sample in all_samples:
-                #extract numerical features.  Time (without the year) is used here since it's very relevant
+                #extract numerical features.  Time is used here since it's very relevant
                 try:
                     timStp=datetime.strptime(sample['timestamp'],"%Y/%m/%d %H:%M:%S").timestamp()
                     if not isinstance(sample['value'],str):
@@ -232,7 +232,7 @@ def load_training_data(detector, args):
         for i, sample in enumerate(normal_samples):
             #print(f'NORMAL SAMPLE INFO!!: {samples}\n')
             if i % 10 == 0:
-                logger(args.output_dir+"log.txt",f"  Added {i}/{len(normal_samples)} normal patterns...", end="\r")
+                logger(args.output_dir+"log.txt",f"  Added {i}/{len(normal_samples)} normal patterns...")
             
             logger(args.output_dir+"log.txt",f'sample: {sample}')
             detector.add_normal_pattern(
@@ -274,7 +274,7 @@ def run_detection_demo(detector, feedback_loop, args):
     logger(args.output_dir+"log.txt","Running anomaly detection demonstration...",to_screen=True)
     
     # load test data (a small subset)    
-    csv_loader = AotCSVLoader(args)
+    csv_loader = AotCSVLoader(args.csv_path,args.magic_number,args.output_dir)
     nodes = csv_loader.get_available_nodes()
     
     #csv_loader = ExtraSensoryCSVLoader(args.csv_path)
@@ -287,7 +287,7 @@ def run_detection_demo(detector, feedback_loop, args):
     else:
         # get data for the first user        
         node_id = nodes[0]
-        raw_test_data = csv_loader.load_node_data(node_id, max_samples=5)
+        raw_test_data = csv_loader.load_node_data(node_id, max_samples=15)
         
         if not raw_test_data:
             logger(args.output_dir+"log.txt",f"No data found for node {node_id}. Exiting...",to_screen=True)
@@ -326,11 +326,12 @@ def run_detection_demo(detector, feedback_loop, args):
             logger(args.output_dir+"log.txt",f"Detection time: {end_time - start_time:.2f} seconds",to_screen=True)
             
             # print human-friendly explanation            
+            print(f"TEST!! Full Result:{result}")
             if "user_friendly_message" in result:
-                logger(args.output_dir+"log.txt","Explanation:",to_screen=True)
+                logger(args.output_dir+"log.txt",f"Explanation:{result['LLM explanation']}",to_screen=True)
                 logger(args.output_dir+"log.txt",f"  {result['user_friendly_message']}",to_screen=True)
             else:
-                logger(args.output_dir+"log.txt","Explanation:",to_screen=True)
+                logger(args.output_dir+"log.txt",f"Explanation:{result['LLM explanation']}",to_screen=True)
                 logger(args.output_dir+"log.txt",f"  {result.get('explanation', 'No explanation available')}",to_screen=True)
             
             # if anomaly, print additional details            
@@ -394,7 +395,7 @@ def analyze_sample_in_detail(detector, sample, args):
     
     try:
         # 1. retrieve similar patterns        
-        retrieved_patterns = detector.multi_query_retrieval(sample)
+        retrieved_patterns = detector.multi_query_retrieval(sample, args.faiss_k)
         #print(f"Found {len(retrieved_patterns)} similar patterns")
         logger(args.output_dir+'log.txt',f"Found {len(retrieved_patterns)} similar patterns")
         
@@ -477,6 +478,8 @@ def parse_arguments():
     # data and model paths    
     parser.add_argument("--csv-path", default=DEFAULT_CSV_PATH,
                         help=f"Path to ExtraSensory CSV file (default: {DEFAULT_CSV_PATH})")
+    parser.add_argument("--csv-path-training", default=DEFAULT_CSV_PATH,
+                        help=f"Path to ExtraSensory CSV file for training (default: {DEFAULT_CSV_PATH})")
     parser.add_argument("--model", default=DEFAULT_MODEL,
                         help=f"Name of Llama model in Ollama (default: {DEFAULT_MODEL})")
     parser.add_argument("--api-base", default=DEFAULT_API_BASE,
@@ -524,6 +527,8 @@ def parse_arguments():
     parser.add_argument("--magic-number", type=int, default=42)
 
     parser.add_argument("--output-dir", type=str, default="./")
+
+    parser.add_argument("--faiss-k",type=int, default=5)
     
     args = parser.parse_args()
     return args
@@ -564,8 +569,8 @@ def main():
     #print(f'ANOMALOUS SAMPLE!!:\n{anomalous_sample}\n')
     
     # detailed analysis of a sample
-    #print(f'Analyzing sample data in detail:\n')    
-    #analyze_sample_in_detail(detector, anomalous_sample, args)
+    print(f'Analyzing sample data in detail:\n')    
+    analyze_sample_in_detail(detector, anomalous_sample, args)
     
     print("\nDemonstration complete!")
     return 0

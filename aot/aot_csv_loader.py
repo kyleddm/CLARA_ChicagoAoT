@@ -10,17 +10,17 @@ class AotCSVLoader:
     #cols: timestamp,node_id,subsystem,sensor,parameter,value_hrf
     
 
-    def __init__(self, args):#csv_file_path: str):
+    def __init__(self, path, magic_number, output_dir):#csv_file_path: str):
         
-        self.csv_file_path = args.csv_path#csv_file_path
-        self.magic_number=args.magic_number
+        self.csv_file_path = path#csv_file_path
+        self.magic_number=magic_number
         self.df = None
         self.param_df=None
         #we truncated the data to reduce size, this tells us the meanings of the truncated components
         self.subsystem_def={'cs':'chemsense','ls':'lightsense','ms':'metsense','pt':'plantower'}
         self.param_def={'hum':'humidity','temp':'temperature','pres':'pressure'}
         self.data_headers={**self.subsystem_def, **self.param_def}
-        self.log_file=args.output_dir+"log.txt"
+        self.log_file=output_dir+"log.txt"
         # verify the file exists        
         if not os.path.exists(self.csv_file_path):
             print(f"Warning: CSV file not found at {self.csv_file_path}")

@@ -1,5 +1,7 @@
 {
-    "csv_path":"./input/chicago_aot/big2018-03-30_00.36.46.csv",
+    "csv_path_test":"./input/chicago_aot/test.csv",
+    "csv_path_training":"./input/chicago_aot/big2018-03-30_00.36.46.csv",
+    "csv_path":"./input/chicago_aot/big2019-04-19_13.12.19.csv",
     "data_headers":{"pres":"pressure", "temp": "temperature", "hum":"humidity", "cs":"chemsense","ls":"lightsense","ms":"metsense"},
     "data_units_file":"./input/chicago_aot/sensors.csv",
     "model":"llama3.2:1b",
@@ -11,15 +13,17 @@
     "threshold":0.7,
     "coherence":0.6,
     "embedding_dim":128,
-    "skip_training": false,
-    "train_embeddings":true,
+    "skip_training": true,
+    "train_embeddings":false,
     "auto_adapt":true,
-    "max_samples":50,
+    "max_samples":500,
     "skip_llm":false,
-    "reset_feedback":true,
+    "reset_feedback":false,
     "use_config":true,
     "config_path":"./config.json",
     "contrastive_training_epochs":30,
     "contrastive_embedding_dim":128,
-    "magic_number":42
+    "magic_number":42,
+    "faiss_k": 15, 
+    "notes":"IMPLEMENTED FAISS_K SO CLARA CAN PROVIDE A NUMBER TO THE AMOUNT OF FAISS RECORDS RETREIVED!! 2026JUL08"
 }

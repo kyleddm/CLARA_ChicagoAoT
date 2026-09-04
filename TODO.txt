@@ -1,0 +1,8 @@
+Magnetic Field data is being seen in the test data.  This may be new to the system.
+Explanations are empty
+responses from LLM in CDA are looking at wrong data (similarity data instead of sample data).  Added more prompt to avoid This
+distances are very large for some FAISS results.  Why are they included in the returns?
+redundant information and bad syntax present in prompt.
+multiple failures ro parse json.
+describe all config file components
+update README

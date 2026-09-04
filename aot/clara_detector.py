@@ -8,7 +8,7 @@ import utilities as util
 from utilities import logger
 import sys
 import traceback
-from clara.faiss_vector_store import FAISSVectorStore
+from .faiss_vector_store import FAISSVectorStore
 from clara.ollama_llm import OllamaLLM
 from .contrastive_embedding_model import generate_sensor_embeddings_with_contrastive_learning
 from .sensor_data_augmenter import SensorDataAugmenter
@@ -31,7 +31,8 @@ class CLARA:
         self.args=arguments
         self.vector_store = FAISSVectorStore(
             dimension=embedding_dim,
-            index_type="flat"  # i'm using flat for exact search. todo: explore more options in the future.         
+            index_type="flat",  # i'm using flat for exact search. todo: explore more options in the future.
+            log_file=self.log_file
             )
         
         if vector_store_path and os.path.exists(vector_store_path):
@@ -106,7 +107,8 @@ class CLARA:
     def _create_embedding(self, sensor_data: Dict[str, Any]) -> np.ndarray:
         
         features = self._sensor_to_features(sensor_data)
-        logger(self.log_file,f'generating embedding from {features}')
+        logger(self.log_file,f'Sensor Data:{sensor_data} converted to features: {features} to generate embedding...')
+        #logger(self.log_file,f'generating embedding from {features}')
         #print(f"Feature shape: {features.shape}")
         # if we have a trained embedding model, use it       
         if self.embedding_model:
@@ -261,21 +263,21 @@ class CLARA:
             
             # first try host-specific search
             matching= [s for s in sensor_data.keys() if 'id' in s]            
-            
+            logger(self.log_file,f'CLARA DETECTOR: Matching Data: {matching}')
             host_id = sensor_data.get(matching[0])#sensor_data.get("hostID")
-            #print(f'GOT ID!!: {matching[0]}:{host_id}\n')
+            logger(self.log_file,f'CLARA DETECTOR: Searching for ID based on sensor input: {matching[0]}:{host_id}\n')
             distances, metadata = self.vector_store.search(
                 query_embedding, 
                 k=k, 
                 filter_func=lambda meta: meta.get(matching[0])==host_id #meta.get('hostID') == host_id
             )
-            #print(f'RETREIVED DISTANCES!!: {distances}\n')
-            #print(f'RETREIVED METADATA!!: {metadata}\n')
+            logger(self.log_file,f'CLARA DETECTOR: RETREIVED DISTANCES: {distances}\n')
+            logger(self.log_file,f'CLARA DETECTOR: RETREIVED METADATA: {metadata}\n')
             
-            logger(self.log_file,'Testing what comes out of the FAISS search:\n')
-            test_dist, test_meta=self.vector_store.search(query_embedding, k)
+            #logger(self.log_file,'Testing what comes out of the FAISS search:\n')
+            #test_dist, test_meta=self.vector_store.search(query_embedding, k)
             #print(f'RETREIVED TEST DISTANCES!!: {test_dist}\n')
-            logger(self.log_file,f'RETREIVED TEST METADATA!!: {test_meta}\n')
+            #logger(self.log_file,f'RETREIVED TEST METADATA!!: {test_meta}\n')
             #NOTE: Despite there being a similar pattern here, it's not showing up.  Need to review!
             # if not enough results, do a general search            
             if len([d for d in distances if d != float('inf')]) < k // 2:
@@ -301,7 +303,8 @@ class CLARA:
                 distances = combined_distances[:k]
                 metadata = combined_metadata[:k]
         else:
-            # general search if no host id            
+            # general search if no host id
+            logger(self.log_file,'matching ID not found in the FAISS Database, doing a general search...')            
             distances, metadata = self.vector_store.search(query_embedding, k)
         
         # format retrieved patterns        
@@ -395,7 +398,7 @@ class CLARA:
         """
         
         # multi-query retrieval   
-        retrieved_patterns = self.multi_query_retrieval(sensor_data)
+        retrieved_patterns = self.multi_query_retrieval(sensor_data, self.args.faiss_k)
         
         #print{f'Looking for patterns in the vector store similar to {sensor_data}.\n'}
         #print{f'Out result yeilded the following retreived patterns: {retrieved_patterns}\n'}

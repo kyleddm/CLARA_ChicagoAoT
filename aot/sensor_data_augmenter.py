@@ -60,11 +60,18 @@ class SensorDataAugmenter:
             is_anomaly = pattern.get('is_anomaly', False)
             #activity = pattern.get('activity', 'unknown')
             description = pattern.get('description', '') or pattern.get('explanation', '')
-            for key in pattern['labels']:
-                if key.lower() != 'distance' and key.lower() != 'is_anomaly' and key.lower() != 'description' and key.lower() != 'explanation':
-                    text += f"- {key}: {pattern.get(key, 'unknown '+str(key))}\n"
+            #for id in pattern['ids']:
+                #text += f"ID: {id}\n"
+            #for key in pattern['labels']:
+                #if key.lower() != 'distance' and key.lower() != 'is_anomaly' and key.lower() != 'description' and key.lower() != 'explanation':
+                    #text += f"- {key}: {pattern.get(key, 'unknown '+str(key))}\n"
                         # add sensor readings            
             for key, value in pattern.items():
+                if key in pattern['ids']:
+                    text += f"ID: {id}\n"
+                if key in pattern['labels']:
+                    if key.lower() != 'distance' and key.lower() != 'is_anomaly' and key.lower() != 'description' and key.lower() != 'explanation':
+                        text += f"- context label: {key}\n"
                 #['user_id', 'activity', 'timestamp', 'distance', 'is_anomaly', 'description', 'explanation']
                 if key not in pattern['ids'] and key not in pattern['labels'] and isinstance(value, (int, float)):
                     text += f"- {key}: {value:.4f}\n"
